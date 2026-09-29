@@ -1,32 +1,10 @@
-<!-- Inclusion de la bibliothèque Supabase client -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<script>
-/* ============================================================
-   GÉNÉRATION MIRACLE — VERSION SUPABASE CLOUD & TEMPS RÉEL
-   ============================================================ */
-
-// Vos identifiants Supabase officiels
-const SUPABASE_URL = "https://igqshvlrneacqlrtfhge.supabase.co";
-const SUPABASE_KEY = "sb_publishable_rJA1I9IbzYnlBlXyB8YfSg_2hb4Odlm";
-
-// Initialisation du client Supabase
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const TOTAL_MEMBERS = 81;
-const LEADERSHIP_ROLES = [
- "Président(e)","Vice-président(e)","Secrétaire","Trésorier(e)","Adjoint au trésorier(e)",
- "Responsable d’organisation","Adjoint responsable d’organisation","Sous-Adjoint responsable d’organisation",
- "Chargé de communication","Adjoint- Chargé de communication"
-];
-
-// Le reste de votre logique applicative...
-<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#126b3b">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <title>Génération Miracle — Le Pacte Miracle</title>
 <style>
 :root{
@@ -90,12 +68,33 @@ a{color:inherit}
 .modal{position:fixed;inset:0;background:rgba(8,20,13,.52);display:none;place-items:center;padding:20px;z-index:50}.modal.open{display:grid}.modal-box{width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;padding:21px;box-shadow:0 25px 80px rgba(0,0,0,.2)}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}.modal-head h2{margin:0;font-size:20px}.close{border:0;background:#edf2ee;border-radius:9px;height:34px;width:34px;font-size:18px}
 .toast{position:fixed;right:20px;bottom:20px;background:#132319;color:#fff;padding:12px 15px;border-radius:11px;box-shadow:var(--shadow);z-index:80;display:none;font-size:13px}.toast.show{display:block;animation:fade 3.2s forwards}@keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
 .mobile-only{display:none}
+.auth-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0b4f2a,#126b3b);display:grid;place-items:center;padding:20px;z-index:200}
+.auth-card{width:min(460px,100%);background:#fff;border-radius:22px;padding:28px;box-shadow:0 30px 90px rgba(0,0,0,.28)}
+.auth-logo{width:58px;height:58px;border-radius:17px;background:#eaf5ee;color:#126b3b;display:grid;place-items:center;font-weight:950;font-size:20px;margin-bottom:14px}
+.auth-card h1{margin:0 0 6px}.auth-card p{color:#69756e;line-height:1.5}.auth-tabs{display:flex;gap:7px;margin:18px 0 14px}.auth-tabs button{flex:1;border:1px solid #e0e7e2;background:#f6f8f6;border-radius:10px;padding:10px;font-weight:750}.auth-tabs button.active{background:#126b3b;color:#fff;border-color:#126b3b}.auth-error{background:#fff0f0;color:#a02f2f;border:1px solid #f0c8c8;padding:10px;border-radius:10px;font-size:12px;margin:10px 0;display:none}
+.cloud-status{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;padding:5px 8px;border-radius:999px;background:#eaf5ee;color:#126b3b}.cloud-status.off{background:#fff4df;color:#8a5200}
 @media(max-width:1150px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}.wide{grid-template-columns:1fr}.kanban{grid-template-columns:repeat(4,240px)}}
 @media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{position:fixed;left:-285px;width:270px;transition:.2s}.sidebar.open{left:0}.menu-mobile{display:block}.mobile-only{display:block}.topbar{padding:0 14px}.user>div:first-child{display:none}.content{padding:17px}.page-head{flex-direction:column}.g3,.g2{grid-template-columns:1fr}}
 @media(max-width:520px){.g4{grid-template-columns:1fr 1fr}.g4 .stat .value{font-size:21px}.top-actions .icon-btn:nth-child(2){display:none}.global-search{min-width:0}.brand{padding-bottom:13px}}
 </style>
 </head>
 <body>
+<div id="authOverlay" class="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">GM</div>
+    <h1>Génération Miracle</h1>
+    <p>Bienvenue sur l'espace collaboratif. Les données de la plateforme sont désormais centralisées dans Supabase.</p>
+    <div class="auth-tabs"><button id="tabLogin" class="active" onclick="setAuthMode('login')">Connexion</button><button id="tabSignup" onclick="setAuthMode('signup')">Créer un compte</button></div>
+    <div id="authError" class="auth-error"></div>
+    <div class="form">
+      <label>Adresse e-mail</label><input id="authEmail" type="email" autocomplete="email" placeholder="vous@exemple.com">
+      <label>Mot de passe</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimum 6 caractères">
+      <label id="authNameLabel" style="display:none">Nom complet</label><input id="authName" style="display:none" autocomplete="name" placeholder="Nom et prénom">
+      <button id="authSubmit" class="btn btn-primary" onclick="submitAuth()">Se connecter</button>
+    </div>
+    <p class="small" style="margin-top:15px">Connexion sécurisée par Supabase Auth. Ne partage jamais une clé <b>service_role</b> dans le navigateur.</p>
+  </div>
+</div>
 <div class="app">
 <aside id="sidebar" class="sidebar">
   <div class="brand">
@@ -131,9 +130,10 @@ a{color:inherit}
   <button class="menu-mobile" onclick="toggleSidebar()">☰</button>
   <input id="globalSearch" class="global-search" placeholder="Rechercher un membre, projet, demande, service…">
   <div class="top-actions">
+    <span id="cloudStatus" class="cloud-status">● Supabase</span>
     <button class="icon-btn" title="Notifications" onclick="go('notifications')">🔔 <span id="topNotif">0</span></button>
     <button class="icon-btn" title="Aide" onclick="showHelp()">?</button>
-    <div class="user"><div><b>Génération Miracle</b><small class="muted"> · Espace membre</small></div><div class="avatar">GM</div></div>
+    <div class="user"><div><b id="userName">Génération Miracle</b><small id="userEmail" class="muted"> · Espace membre</small></div><div class="avatar" id="userAvatar">GM</div></div><button class="icon-btn" title="Déconnexion" onclick="signOut()">↪</button>
   </div>
 </header>
 <section id="content" class="content"></section>
@@ -220,20 +220,139 @@ const defaultData={
  activity:[]
 };
 
-let data=loadData();
+let data=clone(defaultData);
 let page="dashboard";
 let modalType=null;
+let currentUser=null;
+let authMode="login";
+let cloudReady=false;
+let syncTimer=null;
+
+const SUPABASE_URL="https://igqshvlrneacqlrtfhge.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_rJA1I9IbzYnlBlXyB8YfSg_2hb4Odlm";
+const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
+ auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
+});
 
 function clone(x){return JSON.parse(JSON.stringify(x))}
-function loadData(){
- try{
-  const raw=localStorage.getItem(KEY);
-  if(!raw){const x=clone(defaultData);localStorage.setItem(KEY,JSON.stringify(x));return x}
-  const x=JSON.parse(raw);
-  return {...clone(defaultData),...x};
- }catch(e){return clone(defaultData)}
+function isUuid(v){return typeof v==="string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)}
+function normalizeForInsert(row,table){
+ const x=clone(row);
+ if(!isUuid(x.id)) delete x.id;
+ if(table==="transactions" && x.by!==undefined){x.by_role=x.by;delete x.by}
+ delete x.created_at;
+ return x;
 }
-function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function fromDbRow(row,table){
+ const x=clone(row);
+ if(table==="transactions"){x.by=x.by_role||"";delete x.by_role}
+ return x;
+}
+function setCloudStatus(ok){
+ cloudReady=ok;
+ const el=document.getElementById("cloudStatus");
+ if(el){el.classList.toggle("off",!ok);el.textContent=ok?"● Supabase connecté":"● Mode hors-ligne"}
+}
+function showAuthError(msg){const e=document.getElementById("authError");if(e){e.textContent=msg||"Une erreur est survenue.";e.style.display="block"}}
+function setAuthMode(mode){
+ authMode=mode;
+ document.getElementById("tabLogin")?.classList.toggle("active",mode==="login");
+ document.getElementById("tabSignup")?.classList.toggle("active",mode==="signup");
+ const signup=mode==="signup";
+ document.getElementById("authName")&&(document.getElementById("authName").style.display=signup?"block":"none");
+ document.getElementById("authNameLabel")&&(document.getElementById("authNameLabel").style.display=signup?"block":"none");
+ document.getElementById("authSubmit")&&(document.getElementById("authSubmit").textContent=signup?"Créer mon compte":"Se connecter");
+ document.getElementById("authError")&&(document.getElementById("authError").style.display="none");
+}
+async function submitAuth(){
+ const email=document.getElementById("authEmail")?.value.trim();
+ const password=document.getElementById("authPassword")?.value||"";
+ const name=document.getElementById("authName")?.value.trim();
+ if(!email||!password){showAuthError("E-mail et mot de passe sont obligatoires.");return}
+ if(authMode==="signup" && !name){showAuthError("Indique ton nom complet.");return}
+ const btn=document.getElementById("authSubmit");if(btn)btn.disabled=true;
+ try{
+   let result;
+   if(authMode==="signup") result=await supabaseClient.auth.signUp({email,password,data:{full_name:name}});
+   else result=await supabaseClient.auth.signInWithPassword({email,password});
+   if(result.error) throw result.error;
+   if(authMode==="signup" && !result.data.session){showAuthError("Compte créé. Vérifie ton e-mail si la confirmation est activée dans Supabase Auth.");return}
+   currentUser=result.data.user;
+   await startApplication();
+ }catch(e){console.error(e);showAuthError(e.message||"Impossible de se connecter.")}
+ finally{if(btn)btn.disabled=false}
+}
+async function signOut(){await supabaseClient.auth.signOut();location.reload()}
+async function loadCloudTable(table){
+ const {data:rows,error}=await supabaseClient.from(table).select("*");
+ if(error) throw new Error(table+": "+error.message);
+ return (rows||[]).map(r=>fromDbRow(r,table));
+}
+async function seedIfEmpty(table,rows){
+ const {count,error}=await supabaseClient.from(table).select("id",{count:"exact",head:true});
+ if(error) throw error;
+ if((count||0)===0 && rows.length){
+   const payload=rows.map(r=>normalizeForInsert(r,table));
+   const {data:inserted,error:insertError}=await supabaseClient.from(table).insert(payload).select("*");
+   if(insertError) throw insertError;
+   return (inserted||[]).map(r=>fromDbRow(r,table));
+ }
+ return null;
+}
+async function loadAllCloudData(){
+ const tables=["members","transactions","projects","requests","ideas"];
+ const seeds={members:defaultData.members,transactions:defaultData.transactions,projects:defaultData.projects,requests:defaultData.requests,ideas:defaultData.ideas};
+ for(const table of tables){
+   let seeded=await seedIfEmpty(table,seeds[table]);
+   data[table]=seeded||await loadCloudTable(table);
+ }
+ data.votes=data.votes||[];data.meetings=data.meetings||[];data.opportunities=data.opportunities||[];data.services=data.services||[];data.notifications=data.notifications||[];data.activity=data.activity||[];
+}
+async function syncTable(table){
+ if(!cloudReady)return;
+ const rows=(data[table]||[]).map(r=>normalizeForInsert(r,table));
+ if(!rows.length)return;
+ const {data:written,error}=await supabaseClient.from(table).upsert(rows,{onConflict:"id"}).select("*");
+ if(error){console.error("Sync "+table,error);toast("Erreur Supabase : "+error.message);return}
+ if(written?.length){data[table]=written.map(r=>fromDbRow(r,table));}
+}
+function save(){
+ try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}
+ if(!cloudReady)return;
+ clearTimeout(syncTimer);
+ syncTimer=setTimeout(async()=>{
+   try{for(const table of ["members","transactions","projects","requests","ideas"]) await syncTable(table);}
+   catch(e){console.error(e)}
+ },250);
+}
+async function refreshFromRealtime(){
+ try{for(const table of ["members","transactions","projects","requests","ideas"]) data[table]=await loadCloudTable(table);save();render()}
+ catch(e){console.error("Realtime refresh",e)}
+}
+function subscribeRealtime(){
+ supabaseClient.channel("generation-miracle-db")
+ .on("postgres_changes",{event:"*",schema:"public",table:"members"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"transactions"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"projects"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"requests"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"ideas"},refreshFromRealtime)
+ .subscribe((status)=>console.log("Realtime:",status));
+}
+async function startApplication(){
+ document.getElementById("authOverlay")?.remove();
+ const {data:sessionData}=await supabaseClient.auth.getSession();
+ currentUser=sessionData.session?.user||currentUser;
+ if(!currentUser){location.reload();return}
+ const label=currentUser.user_metadata?.full_name||currentUser.email?.split("@")[0]||"Membre";
+ const un=document.getElementById("userName"),ue=document.getElementById("userEmail"),ua=document.getElementById("userAvatar");
+ if(un)un.textContent=label; if(ue)ue.textContent=" · "+(currentUser.email||"Membre"); if(ua)ua.textContent=initials(label);
+ try{await loadAllCloudData();setCloudStatus(true);subscribeRealtime();}
+ catch(e){console.error(e);setCloudStatus(false);showToastError(e.message);}
+ if(!data.activity.length){data.activity=[{id:"A-START",text:"Plateforme Génération Miracle connectée à Supabase",time:now(),actor:"Système"}];}
+ render();
+}
+function showToastError(msg){toast("Supabase : "+(msg||"vérifie les tables/RLS"))}
+
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
 function money(n){return Number(n||0).toLocaleString("fr-FR")+" FCFA"}
 function initials(n){return String(n).split(/\s+/).filter(Boolean).map(x=>x[0]).slice(0,2).join("").toUpperCase()}
@@ -614,17 +733,16 @@ function importMembers(){
 function submitPost(){const title=v("fTitle");if(!title)return required();addActivity("Publication : "+title);notify("Nouvelle publication : "+title);closeModal();render();toast("Publication enregistrée")}
 function v(id){return document.getElementById(id)?.value?.trim()||""}
 function required(){toast("Veuillez remplir les champs obligatoires")}
-function showHelp(){openModal("Aide","help");document.getElementById("modalBody").innerHTML=`<div class="info">Cette V1 est un prototype autonome. Les données sont enregistrées dans le navigateur. Pour une vraie plateforme partagée par tous les membres, branchez ce frontend à une base serveur avec authentification et temps réel.</div><h3 style="margin-top:18px">Raccourcis</h3><ul class="small" style="line-height:1.9"><li>Utilisez la recherche globale pour trouver rapidement des membres, projets, demandes ou idées.</li><li>Le module Import accepte CSV/TSV pour charger les profils du Google Sheet.</li><li>Exportez régulièrement vos données depuis Paramètres.</li></ul>`}
+function showHelp(){openModal("Aide","help");document.getElementById("modalBody").innerHTML=`<div class="info">Cette V2 utilise Supabase Auth, PostgreSQL et Realtime. Les cinq modules centraux (membres, caisse, projets, demandes, idées) sont synchronisés avec la base cloud. Les autres modules de la maquette restent disponibles côté interface et pourront être migrés ensuite.</div><h3 style="margin-top:18px">Raccourcis</h3><ul class="small" style="line-height:1.9"><li>Utilisez la recherche globale pour trouver rapidement des membres, projets, demandes ou idées.</li><li>Le module Import accepte CSV/TSV pour charger les profils du Google Sheet.</li><li>Exportez régulièrement vos données depuis Paramètres.</li></ul>`}
 
 /* ---------- IMPORT / EXPORT / RESET ---------- */
 function downloadCSV(rows,name){const csv=rows.map(r=>r.map(x=>`"${String(x??"").replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function exportBackup(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="generation-miracle-backup.json";a.click();URL.revokeObjectURL(a.href);toast("Sauvegarde exportée")}
-function resetDemo(){if(confirm("Réinitialiser toutes les données locales de la plateforme ?")){localStorage.removeItem(KEY);data=loadData();go("dashboard");toast("Démo réinitialisée")}}
+async function resetDemo(){if(confirm("Recharger les données depuis Supabase ?")){try{await loadAllCloudData();render();toast("Données Supabase rechargées")}catch(e){showToastError(e.message)}}}
 
 
 /* ---------- TOUR DE CONTRÔLE ---------- */
-const CONTROL_PASSWORD="Generation_miracle";
-function isControlAuthenticated(){return sessionStorage.getItem("gm_control_auth")==="1"}
+function isControlAuthenticated(){return !!currentUser}
 function controlPage(){
  if(!isControlAuthenticated()){
   return pageHead("Tour de contrôle","Zone réservée au pilotage de la plateforme.",
@@ -653,17 +771,9 @@ function controlPage(){
   <div class="card"><h3>Demandes urgentes</h3>${data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").map(r=>`<div class="list-item"><div class="split"><b>${esc(r.title)}</b>${badge(r.priority)}</div><div class="muted small">${esc(r.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(r.owner||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune demande urgente.</div>`}</div>
  </div>`;
 }
-function openControlLogin(){
- document.getElementById("modalTitle").textContent="Connexion — Tour de contrôle";
- document.getElementById("modalBody").innerHTML=`<div class="control-lock">Zone réservée. Le mot de passe est requis pour accéder aux fonctions de pilotage.</div><div class="form" style="margin-top:14px"><label>Mot de passe</label><input id="controlPassword" type="password" autocomplete="off" placeholder="Mot de passe de pilotage" onkeydown="if(event.key==='Enter')checkControlPassword()"><button class="btn btn-primary" onclick="checkControlPassword()">Accéder au tour de contrôle</button></div>`;
- document.getElementById("modal").classList.add("open");
- setTimeout(()=>document.getElementById("controlPassword")?.focus(),100);
-}
-function checkControlPassword(){
- if(v("controlPassword")===CONTROL_PASSWORD){sessionStorage.setItem("gm_control_auth","1");closeModal();go("control");toast("Accès au tour de contrôle autorisé");addActivity("Connexion au tour de contrôle")}
- else toast("Mot de passe incorrect");
-}
-function logoutControl(){sessionStorage.removeItem("gm_control_auth");go("control");toast("Session de contrôle fermée")}
+function openControlLogin(){setAuthMode("login");location.reload()}
+function checkControlPassword(){return true}
+function logoutControl(){signOut()}
 function requireControl(){if(!isControlAuthenticated()){openControlLogin();return false}return true}
 
 /* ---------- RENDER ---------- */
@@ -682,9 +792,15 @@ document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",(
 /* keyboard shortcut */
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();document.getElementById("globalSearch").focus()}});
 
-/* initial activity */
-if(!data.activity.length){data.activity=[{id:"A-START",text:"Plateforme Génération Miracle initialisée",time:now(),actor:"Système"}];save()}
-render();
+/* ---------- BOOT SUPABASE ---------- */
+supabaseClient.auth.onAuthStateChange((event,session)=>{
+ if(session?.user && !currentUser){currentUser=session.user;startApplication()}
+});
+(async()=>{
+ const {data:sessionData}=await supabaseClient.auth.getSession();
+ if(sessionData.session?.user){currentUser=sessionData.session.user;await startApplication()}
+ else{setCloudStatus(false)}
+})();
 </script>
 </body>
 </html>
