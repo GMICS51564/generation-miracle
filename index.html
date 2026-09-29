@@ -1,3 +1,26 @@
+<!-- Inclusion de la bibliothèque Supabase client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+/* ============================================================
+   GÉNÉRATION MIRACLE — VERSION SUPABASE CLOUD & TEMPS RÉEL
+   ============================================================ */
+
+// Vos identifiants Supabase officiels
+const SUPABASE_URL = "https://igqshvlrneacqlrtfhge.supabase.co";
+const SUPABASE_KEY = "sb_publishable_rJA1I9IbzYnlBlXyB8YfSg_2hb4Odlm";
+
+// Initialisation du client Supabase
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const TOTAL_MEMBERS = 81;
+const LEADERSHIP_ROLES = [
+ "Président(e)","Vice-président(e)","Secrétaire","Trésorier(e)","Adjoint au trésorier(e)",
+ "Responsable d’organisation","Adjoint responsable d’organisation","Sous-Adjoint responsable d’organisation",
+ "Chargé de communication","Adjoint- Chargé de communication"
+];
+
+// Le reste de votre logique applicative...
 <!DOCTYPE html>
 <html lang="fr">
 <head>
