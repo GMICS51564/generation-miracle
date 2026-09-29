@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#126b3b">
+<title>Génération Miracle — Le Pacte Miracle</title>
+<style>
+:root{
+  --green:#126b3b;--green2:#0b4f2a;--green3:#eaf5ee;--gold:#d4aa00;--gold2:#fff7d6;
+  --navy:#122039;--bg:#f4f7f5;--card:#fff;--text:#17201b;--muted:#69756e;
+  --line:#e0e7e2;--red:#bd3b3b;--redbg:#fff0f0;--blue:#2865a4;--bluebg:#edf5ff;
+  --orange:#b86b00;--orangebg:#fff4df;--shadow:0 10px 30px rgba(15,38,24,.07);
+  --radius:16px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+a{color:inherit}
+.app{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+.sidebar{background:linear-gradient(180deg,#0b4f2a,#126b3b);color:#fff;position:sticky;top:0;height:100vh;padding:18px 14px;overflow:auto;z-index:20}
+.brand{display:flex;align-items:center;gap:11px;padding:8px 8px 20px;border-bottom:1px solid rgba(255,255,255,.16)}
+.logo{height:46px;width:46px;border-radius:14px;background:#fff;color:var(--green);display:grid;place-items:center;font-weight:950;letter-spacing:-1px}
+.brand strong{font-size:14px;display:block;line-height:1.1}.brand small{opacity:.7;font-size:10px}
+.nav{padding-top:15px}.nav-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.52);padding:14px 10px 6px}
+.nav button{width:100%;border:0;background:transparent;color:#e7f4eb;border-radius:10px;text-align:left;padding:10px 11px;margin:2px 0;font-weight:650;font-size:13px}
+.nav button:hover,.nav button.active{background:rgba(255,255,255,.14);color:#fff}
+.nav .ico{width:25px;display:inline-block;text-align:center;margin-right:4px}
+.main{min-width:0}.topbar{height:72px;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 26px;position:sticky;top:0;z-index:15}
+.menu-mobile{display:none;border:0;background:#edf3ee;border-radius:9px;padding:8px 10px}
+.global-search{flex:1;max-width:650px;border:1px solid var(--line);background:#f6f8f6;border-radius:12px;padding:11px 14px;outline:0}
+.global-search:focus{border-color:#9dc4ab;background:#fff}
+.top-actions{margin-left:auto;display:flex;gap:8px;align-items:center}.icon-btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px}.user{display:flex;gap:9px;align-items:center;padding-left:8px}.avatar{width:38px;height:38px;border-radius:50%;background:#dcefe3;color:var(--green);display:grid;place-items:center;font-weight:850;flex:0 0 auto}
+.content{max-width:1550px;margin:auto;padding:27px}
+.page-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}.page-head h1{font-size:28px;margin:0 0 5px;letter-spacing:-.6px}.page-head p{margin:0;color:var(--muted);font-size:14px}.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:750;transition:.15s}.btn:hover{transform:translateY(-1px)}.btn-primary{background:var(--green);color:#fff}.btn-gold{background:var(--gold);color:#1b210f}.btn-light{background:#fff;border:1px solid var(--line);color:var(--text)}.btn-danger{background:var(--red);color:#fff}.btn-blue{background:var(--blue);color:#fff}.btn-small{padding:7px 9px;font-size:12px}
+.grid{display:grid;gap:16px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.wide{grid-template-columns:1.45fr 1fr}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}.card h2,.card h3{margin:0 0 12px}.card h3{font-size:16px}.card p{line-height:1.55}
+.stat{min-height:130px}.stat .label{color:var(--muted);font-size:12px;font-weight:650}.stat .value{font-size:28px;font-weight:900;margin:8px 0 3px}.stat .sub{font-size:12px;color:var(--green)}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:25px 0 11px}.section-head h2{font-size:17px;margin:0}.muted{color:var(--muted)}.small{font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:800;background:var(--green3);color:var(--green)}.badge.gold{background:var(--gold2);color:#705800}.badge.red{background:var(--redbg);color:#a02f2f}.badge.blue{background:var(--bluebg);color:#245b92}.badge.orange{background:var(--orangebg);color:#8a5200}.badge.gray{background:#eef1ef;color:#66706b}
+.notice{padding:13px 15px;background:#fff9db;border:1px solid #eedb85;color:#655300;border-radius:12px;font-size:13px;line-height:1.5}.info{padding:13px 15px;background:var(--bluebg);border:1px solid #cfe1f5;color:#245b92;border-radius:12px;font-size:13px}
+.kpi{display:flex;align-items:center;justify-content:space-between;gap:10px}.money{font-size:26px;font-weight:900}.positive{color:var(--green)}.negative{color:var(--red)}
+.progress{height:8px;background:#edf1ee;border-radius:999px;overflow:hidden}.progress i{display:block;height:100%;background:var(--green);border-radius:999px}.progress.gold i{background:var(--gold)}
+.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:720px}.table th,.table td{padding:11px 9px;border-bottom:1px solid var(--line);text-align:left;font-size:12px;vertical-align:middle}.table th{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px;background:#fafbfa}.table tr:hover td{background:#fbfdfb}
+.member{display:flex;gap:9px;align-items:center}.member .avatar{width:34px;height:34px;font-size:11px}.member b{display:block}.member small{color:var(--muted);display:block;margin-top:2px}
+.activity{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}.activity:last-child{border-bottom:0}.dot{height:9px;width:9px;background:var(--green);border-radius:50%;margin-top:6px;flex:0 0 auto}
+.list-item{padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff}.list-item+.list-item{margin-top:9px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.field,.filters input,.filters select{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;outline:0}.field:focus{border-color:#8bb89c}
+.form{display:grid;gap:11px}.form label{font-size:12px;font-weight:750;color:#455148}.form input,.form select,.form textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;outline:0}.form textarea{min-height:100px;resize:vertical}.form input:focus,.form select:focus,.form textarea:focus{border-color:#89b99a}
+.split{display:flex;justify-content:space-between;gap:14px;align-items:center}
+.timeline{border-left:2px solid #dfe8e1;padding-left:18px}.timeline-item{position:relative;margin-bottom:18px}.timeline-item:before{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:var(--gold);left:-24px;top:4px;border:3px solid var(--bg)}
+.module{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;transition:.15s}.module:hover{box-shadow:var(--shadow);transform:translateY(-2px)}.module .emoji{font-size:27px;margin-bottom:7px}.module h3{margin:0 0 7px}.module p{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 13px}
+.kanban{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;overflow:auto}.kanban-col{background:#eef3ef;border-radius:14px;padding:10px;min-height:260px}.kanban-title{font-weight:800;font-size:12px;margin:3px 4px 10px}.task{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:8px;box-shadow:0 4px 12px rgba(0,0,0,.03)}.task b{font-size:12px}.task p{font-size:11px;color:var(--muted);margin:6px 0}.task .row{display:flex;justify-content:space-between;gap:8px}
+.empty{text-align:center;padding:35px 15px;color:var(--muted)}.empty .big{font-size:30px;margin-bottom:8px}
+.chart{height:220px;display:flex;align-items:flex-end;gap:10px;padding:15px 4px 4px}.bar{flex:1;background:#b9d9c4;border-radius:7px 7px 2px 2px;min-width:12px;position:relative}.bar span{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--muted)}
+.profile-head{display:flex;gap:18px;align-items:center}.profile-big{height:75px;width:75px;border-radius:22px;background:#dcefe3;color:var(--green);display:grid;place-items:center;font-size:22px;font-weight:900}.profile-name h2{margin:0}.profile-name p{margin:4px 0;color:var(--muted)}
+.tag{display:inline-block;padding:5px 8px;background:#f0f4f1;border-radius:8px;font-size:11px;margin:3px}
+.responsible{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:9px;background:#edf7f0;color:var(--green);font-size:11px;font-weight:800;border:1px solid #d4e9da}.responsible b{font-weight:900}
+.control-lock{border:1px solid #efd77c;background:#fff9df;color:#665300;border-radius:13px;padding:14px;font-size:13px}.control-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.control-action{border:1px solid var(--line);background:#fff;border-radius:13px;padding:14px;text-align:left}.control-action:hover{border-color:#8fbea0;background:#fbfefc}.control-action b{display:block;margin-bottom:4px}.control-action span{font-size:12px;color:var(--muted)}
+@media(max-width:1150px){.control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.control-grid{grid-template-columns:1fr}}
+
+.modal{position:fixed;inset:0;background:rgba(8,20,13,.52);display:none;place-items:center;padding:20px;z-index:50}.modal.open{display:grid}.modal-box{width:min(720px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;padding:21px;box-shadow:0 25px 80px rgba(0,0,0,.2)}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}.modal-head h2{margin:0;font-size:20px}.close{border:0;background:#edf2ee;border-radius:9px;height:34px;width:34px;font-size:18px}
+.toast{position:fixed;right:20px;bottom:20px;background:#132319;color:#fff;padding:12px 15px;border-radius:11px;box-shadow:var(--shadow);z-index:80;display:none;font-size:13px}.toast.show{display:block;animation:fade 3.2s forwards}@keyframes fade{0%,70%{opacity:1}100%{opacity:0}}
+.mobile-only{display:none}
+@media(max-width:1150px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}.wide{grid-template-columns:1fr}.kanban{grid-template-columns:repeat(4,240px)}}
+@media(max-width:800px){.app{grid-template-columns:1fr}.sidebar{position:fixed;left:-285px;width:270px;transition:.2s}.sidebar.open{left:0}.menu-mobile{display:block}.mobile-only{display:block}.topbar{padding:0 14px}.user>div:first-child{display:none}.content{padding:17px}.page-head{flex-direction:column}.g3,.g2{grid-template-columns:1fr}}
+@media(max-width:520px){.g4{grid-template-columns:1fr 1fr}.g4 .stat .value{font-size:21px}.top-actions .icon-btn:nth-child(2){display:none}.global-search{min-width:0}.brand{padding-bottom:13px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside id="sidebar" class="sidebar">
+  <div class="brand">
+    <div class="logo">GM</div>
+    <div><strong>GÉNÉRATION<br>MIRACLE</strong><small>Le Pacte Miracle · 2026</small></div>
+  </div>
+  <nav class="nav">
+    <div class="nav-label">Pilotage</div>
+    <button data-page="dashboard"><span class="ico">◈</span>Tableau de bord</button>
+    <button data-page="members"><span class="ico">◎</span>Membres</button>
+    <button data-page="finance"><span class="ico">₣</span>Caisse & finances</button>
+    <button data-page="requests"><span class="ico">✓</span>Demandes d'aide</button>
+    <button data-page="ideas"><span class="ico">✦</span>Boîte à idées</button>
+    <div class="nav-label">Action collective</div>
+    <button data-page="projects"><span class="ico">◫</span>Projets</button>
+    <button data-page="jobs"><span class="ico">⚡</span>Emploi & opportunités</button>
+    <button data-page="services"><span class="ico">▦</span>Catalogue Miracle</button>
+    <button data-page="purchases"><span class="ico">□</span>Centrale d'achat</button>
+    <button data-page="international"><span class="ico">◎</span>Pont international</button>
+    <div class="nav-label">Gouvernance</div>
+    <button data-page="votes"><span class="ico">☑</span>Votes & décisions</button>
+    <button data-page="meetings"><span class="ico">◷</span>Réunions</button>
+    <button data-page="activity"><span class="ico">⌁</span>Journal d'activité</button>
+    <button data-page="notifications"><span class="ico">●</span>Notifications <span id="notifCount"></span></button>
+    <div class="nav-label">Administration</div>
+    <button data-page="settings"><span class="ico">⚙</span>Paramètres</button>
+    <button data-page="control"><span class="ico">🔐</span>Tour de contrôle</button>
+  </nav>
+</aside>
+
+<main class="main">
+<header class="topbar">
+  <button class="menu-mobile" onclick="toggleSidebar()">☰</button>
+  <input id="globalSearch" class="global-search" placeholder="Rechercher un membre, projet, demande, service…">
+  <div class="top-actions">
+    <button class="icon-btn" title="Notifications" onclick="go('notifications')">🔔 <span id="topNotif">0</span></button>
+    <button class="icon-btn" title="Aide" onclick="showHelp()">?</button>
+    <div class="user"><div><b>Génération Miracle</b><small class="muted"> · Espace membre</small></div><div class="avatar">GM</div></div>
+  </div>
+</header>
+<section id="content" class="content"></section>
+</main>
+</div>
+
+<div id="modal" class="modal"><div class="modal-box"><div class="modal-head"><h2 id="modalTitle"></h2><button class="close" onclick="closeModal()">×</button></div><div id="modalBody"></div></div></div>
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   GÉNÉRATION MIRACLE — V1 FRONTEND AUTONOME
+   - Aucun framework / aucune dépendance externe.
+   - Données de démonstration + localStorage.
+   - Prévu pour être branché à PostgreSQL/Supabase + Google Sheets
+     dans une version production multi-utilisateur.
+   ============================================================ */
+
+const KEY="gm_v1_final_v2";
+const seedMembers=[
+ {id:1,name:"ELENGA grâce",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Comptabilité / finance",skills:["Outils","Analyse financière","Tresses"],looking:"Comptabilité finance",offer:"Marketing",project:"Salon de beauté / atelier à coudre"},
+ {id:2,name:"Vensie Onka MPOUSSION",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Santé publique",skills:["Collecte de données","Analyse des organisations","Gestion de projets"],looking:"Emploi en santé publique",offer:"Réseau d'employeurs",project:"Boutique en ligne"},
+ {id:3,name:"Jerphy ELENGA",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Bâtiment / travaux publics",skills:["AutoCAD","Archicad","Robot Structural Analysis"],looking:"Génie civil",offer:"Conception et dimensionnement",project:""},
+ {id:4,name:"BOUYA OSSERE",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Relations internationales",skills:["Relations internationales","Anglais","Culture générale"],looking:"Relations internationales",offer:"Finance internationale",project:""},
+ {id:5,name:"MOUSSIESSI Clauvina Claudia",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Langue / littérature française",skills:["Français","Gestion de caisse","Conseil"],looking:"Apprentissage",offer:"Conseil",project:"Créer une entreprise"},
+ {id:6,name:"Mokili Laparole",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Commerce / management",skills:["Adaptation","Communication","Résolution de problèmes"],looking:"Commercial / management",offer:"Conseil commercial",project:"Cabinet de conseil"},
+ {id:7,name:"NGAMOUE Dieu AIde Jemm",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Microbiologie",skills:["Analyses biologiques","HSE laboratoire","Recherche scientifique"],looking:"Santé / sciences de laboratoire",offer:"Analyse biologique",project:"Produit médical contre les mycoses"},
+ {id:8,name:"Gloire AMULETO",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Administration des affaires",skills:["Marketing digital","Graphisme","E-commerce"],looking:"Marketing digital",offer:"E-commerce",project:"Application de montage vidéo"},
+ {id:9,name:"Nkoua",status:"Actif",role:"Membre",city:"Congo",sector:"Commerce international",skills:["Gestion de projet","Organisation","PESTEL / SWOT"],looking:"Organisation et gestion d'entreprise",offer:"Investissement / gestion",project:"Vente de cacahouètes sous commande"},
+ {id:10,name:"NGATSONO YOKA Grâce Moïse",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Santé humaine",skills:["Injections de base","Pansements","Observation médicale"],looking:"Santé",offer:"Sensibilisation santé",project:"Prévention et promotion de la santé"},
+ {id:11,name:"EKOUEKI Lefoundzou Katricia",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Droit",skills:["Communication","Informatique"],looking:"",offer:"Communication",project:""},
+ {id:12,name:"Belcheri DIABAKA",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Électronique / télécommunications",skills:["Programmation","Réseaux","Gestion de projet"],looking:"",offer:"Informatique / HSE",project:""},
+ {id:13,name:"Matita Diawara",status:"Actif",role:"Membre",city:"Russie",sector:"Économie / management",skills:["Gestion","Russe","Économie"],looking:"",offer:"Conseil",project:""},
+ {id:14,name:"Nakrish Ferole TCHICKA BERJET",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Comptabilité / gestion",skills:["Comptabilité","SYSCOHADA","Gestion"],looking:"",offer:"Comptabilité",project:""},
+ {id:15,name:"Koulick Leonel",status:"Actif",role:"Membre",city:"Congo Brazzaville",sector:"Pétrolier / logistique",skills:["Gestion des flux","Marketing","Informatique de gestion"],looking:"Transport aérien",offer:"Logistique / import-export",project:"Vente de meubles"},
+ {id:16,name:"IHAYAS BIPELLÉ Jessie Bipellé",status:"Actif",role:"Membre",city:"Kinshasa",sector:"Médecine / santé",skills:["Rapports","Communication santé","Gestion / organisation"],looking:"",offer:"Santé",project:"Amélioration des conditions éducatives et sanitaires"},
+ {id:17,name:"Leader Lempoua",status:"Actif",role:"Membre",city:"Dakar",sector:"Droit",skills:["Word","Excel","Publisher"],looking:"",offer:"Bureautique",project:""},
+ {id:18,name:"Ruth Josiane Ismaëlle KIBOKIRI",status:"Actif",role:"Membre",city:"Dakar",sector:"Banque / finance / assurance",skills:["Gestion de projet","Élaboration de projet","Finance / leadership"],looking:"Banque",offer:"Gestion financière",project:"Agriculture"},
+ {id:19,name:"Ossere",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Gestion commerciale",skills:["Créativité","Collaboration","Adaptation"],looking:"Marketing / gestion",offer:"Gestion et organisation",project:""},
+ {id:20,name:"OBONGO Bienvenu Patrick",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Informatique",skills:["Administration réseau","Maintenance informatique","Création musicale"],looking:"Informatique",offer:"Maintenance informatique",project:""},
+ {id:21,name:"KAMBA ANTHONY BÉNI",status:"Actif",role:"Membre",city:"Pékin",sector:"Médecine",skills:["Gestion analytique","Comptabilité","Organisation"],looking:"",offer:"",project:""},
+ {id:22,name:"NZAOU",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Génie civil / architecture",skills:["AutoCAD","Archicad","Suivi de travaux"],looking:"Secteur pétrolier",offer:"Suivi de chantier",project:""},
+ {id:23,name:"KETANI OUMBA",status:"Actif",role:"Membre",city:"Paris",sector:"Logistique",skills:["Gestion de flux","Rentabilité","Gestion de projet"],looking:"",offer:"Logistique",project:""},
+ {id:24,name:"Junior Makanga",status:"Actif",role:"Membre",city:"Brazzaville",sector:"Génie industriel / agroalimentaire",skills:["Innovation","Gestion de projet","Marketing"],looking:"",offer:"Design graphique",project:"JCM-SNACK / SIR BOL"},
+ {id:25,name:"NGOMA Maurissette Bernicia",status:"Actif",role:"Membre",city:"Pointe-Noire",sector:"Informatique / marketing",skills:["Compétence digitale","Entrepreneuriat","Littératie financière"],looking:"",offer:"Bureautique / formation",project:"Services de saisie et présentation"}
+];
+
+const TOTAL_MEMBERS=81;
+const REGISTERED_MEMBER_TARGET=25;
+const LEADERSHIP_ROLES=[
+ "Président(e)","Vice-président(e)","Secrétaire","Trésorier(e)","Adjoint au trésorier(e)",
+ "Responsable d’organisation","Adjoint responsable d’organisation","Sous-Adjoint responsable d’organisation",
+ "Chargé de communication","Adjoint- Chargé de communication"
+];
+
+const defaultData={
+ members:seedMembers,
+ ideas:[
+  {id:"I-001",title:"Créer un catalogue numérique des compétences",category:"Projet",detail:"Répertorier les compétences et services de chaque membre.",author:"Membre",responsible:"Chargé de communication",status:"Validée",date:"2026-09-01"},
+  {id:"I-002",title:"Mettre en place un fonds de transport",category:"Entraide",detail:"Aider les membres convoqués à un entretien lorsqu'ils manquent de moyens de transport.",author:"Membre",responsible:"Trésorier(e)",status:"À étudier",date:"2026-09-04"}
+ ],
+ requests:[
+  {id:"GM-0001",title:"Accompagnement CV",member:"Membre",category:"Emploi",priority:"Normale",status:"En cours",owner:"Cabinet de recrutement",detail:"Besoin de relecture et préparation.",date:"2026-09-10"},
+  {id:"GM-0002",title:"Aide transport entretien",member:"Membre",category:"Transport",priority:"Urgente",status:"Nouvelle",owner:"Responsable d’organisation",detail:"Besoin ponctuel pour un entretien.",date:"2026-09-12"}
+ ],
+ projects:[
+  {id:"P-001",title:"CV-thèque commune",description:"Base interne des profils, compétences et besoins.",status:"En cours",progress:55,owner:"Adjoint- Chargé de communication",budget:0},
+  {id:"P-002",title:"Catalogue Miracle",description:"Catalogue des services proposés par les membres.",status:"En cours",progress:70,owner:"Chargé de communication",budget:0},
+  {id:"P-003",title:"Fonds de Transport",description:"Fonds dédié au transport lié aux opportunités professionnelles.",status:"À lancer",progress:15,owner:"Trésorier(e)",budget:0},
+  {id:"P-004",title:"Centrale d'achat",description:"Regrouper les besoins pour commander en gros.",status:"Planifié",progress:10,owner:"Responsable d’organisation",budget:0},
+  {id:"P-005",title:"Pont International",description:"Faire circuler des micro-missions entre membres locaux et membres à l'étranger.",status:"Planifié",progress:5,owner:"Vice-président(e)",budget:0},
+  {id:"P-006",title:"Coopérative des diplômés",description:"Préparer les projets collectifs et l'auto-emploi.",status:"Planifié",progress:0,owner:"Président(e)",budget:0}
+ ],
+ transactions:[
+  {id:"TX-001",date:"2026-09-01",label:"Cotisations — base actuelle",type:"Entrée",amount:12500,category:"Cotisations",by:"Trésorier(e)",note:"25 membres renseignés × 500 FCFA — exemple de départ"}
+ ],
+ votes:[
+  {id:"V-001",title:"Exemple de décision à soumettre",detail:"Cette ligne est un exemple du workflow de vote.",status:"Brouillon",for:0,against:0,abstain:0,deadline:"2026-10-15",responsible:"Secrétaire"}
+ ],
+ meetings:[],
+ opportunities:[],
+ services:[],
+ notifications:[],
+ activity:[]
+};
+
+let data=loadData();
+let page="dashboard";
+let modalType=null;
+
+function clone(x){return JSON.parse(JSON.stringify(x))}
+function loadData(){
+ try{
+  const raw=localStorage.getItem(KEY);
+  if(!raw){const x=clone(defaultData);localStorage.setItem(KEY,JSON.stringify(x));return x}
+  const x=JSON.parse(raw);
+  return {...clone(defaultData),...x};
+ }catch(e){return clone(defaultData)}
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(data))}
+function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function money(n){return Number(n||0).toLocaleString("fr-FR")+" FCFA"}
+function initials(n){return String(n).split(/\s+/).filter(Boolean).map(x=>x[0]).slice(0,2).join("").toUpperCase()}
+function now(){return new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})}
+function uid(prefix){return prefix+"-"+Date.now().toString(36).toUpperCase()}
+function activeMembers(){return data.members.filter(m=>m.status==="Actif").length}
+function addActivity(text){
+ data.activity.unshift({id:uid("A"),text,time:now(),actor:"Elisée Melchi Mabondzo"});
+ data.activity=data.activity.slice(0,100); save();
+}
+function notify(text){
+ data.notifications.unshift({id:uid("N"),text,time:now(),read:false});
+ data.notifications=data.notifications.slice(0,50); save();
+}
+function toast(t){const x=document.getElementById("toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),3200)}
+function go(p){page=p;render();document.getElementById("sidebar").classList.remove("open");window.scrollTo({top:0,behavior:"smooth"})}
+function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open")}
+function pageHead(title,desc,actions=""){return `<div class="page-head"><div><h1>${title}</h1><p>${desc}</p></div><div class="actions">${actions}</div></div>`}
+function stat(label,value,sub,cls=""){return `<div class="card stat ${cls}"><div class="label">${label}</div><div class="value">${value}</div><div class="sub">${sub}</div></div>`}
+function badge(s){let c="";if(/urgent|rouge/i.test(s))c="red";else if(/dormant|planifié|à étudier|brouillon/i.test(s))c="gold";else if(/en cours|validée|actif|terminé/i.test(s))c="";else if(/international|disponible/i.test(s))c="blue";return `<span class="badge ${c}">${esc(s)}</span>`}
+function empty(icon,text,button=""){return `<div class="empty"><div class="big">${icon}</div><div>${text}</div>${button?`<div style="margin-top:12px">${button}</div>`:""}</div>`}
+
+/* ---------- DASHBOARD ---------- */
+function dashboard(){
+ const balance=data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?t.amount:-t.amount),0);
+ const openReq=data.requests.filter(r=>r.status!=="Clôturée").length;
+ const urgent=data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").length;
+ const ideas=data.ideas.length;
+ return pageHead("Tableau de bord","Le centre de pilotage de la Génération Miracle.",
+ `<button class="btn btn-primary" onclick="openModal('Publier une information','post')">+ Publier</button>
+  <button class="btn btn-gold" onclick="openModal('Nouvelle demande d’aide','request')">+ Demander de l’aide</button>`)
+ +`<div class="grid g4">
+ ${stat("Membres",TOTAL_MEMBERS,`${data.members.length} ont renseigné leur nom · ${TOTAL_MEMBERS-data.members.length} places à compléter`)}
+ ${stat("Solde affiché",money(balance),"Livre de caisse · responsable : Trésorier(e)")}
+ ${stat("Demandes ouvertes",openReq,urgent+" urgente(s) · responsable attribué à chaque ticket")}
+ ${stat("Projets suivis",data.projects.length,ideas+" idée(s) enregistrée(s)")}
+ </div>
+ <div class="control-lock" style="margin-top:16px"><b>👥 81 membres prévus</b> · ${data.members.length} profils renseignés actuellement. Chaque membre peut s'ajouter librement depuis « Membres ». Les fonctions de direction sont gérées séparément et leurs noms ne sont pas affichés ici.</div>
+ <div class="grid wide" style="margin-top:16px">
+  <div>
+   <div class="section-head"><h2>Situation collective</h2><span class="muted small">Mise à jour locale · ${now()}</span></div>
+   <div class="card">
+    <div class="kpi"><div><div class="muted small">Membres renseignés</div><strong style="font-size:24px">${data.members.length} / ${TOTAL_MEMBERS}</strong></div>${badge("Profils")}</div>
+    <div class="progress" style="margin:13px 0 18px"><i style="width:${Math.min(100,data.members.length/TOTAL_MEMBERS*100)}%"></i></div>
+    <div class="grid g3">
+      <div><b>${TOTAL_MEMBERS}</b><div class="muted small">membres prévus</div></div>
+      <div><b>${data.members.length}</b><div class="muted small">noms renseignés</div></div>
+      <div><b>${TOTAL_MEMBERS-data.members.length}</b><div class="muted small">profils à compléter</div></div>
+    </div>
+   </div>
+  </div>
+  <div>
+   <div class="section-head"><h2>Caisse commune</h2><button class="btn btn-light btn-small" onclick="go('finance')">Voir le livre</button></div>
+   <div class="card">
+    <div class="muted small">Solde calculé depuis le livre</div><div class="money">${money(balance)}</div>
+    <div class="split small"><span>Objectif Phase 1</span><b>80 000 FCFA</b></div>
+    <div class="progress gold" style="margin:9px 0"><i style="width:${Math.min(100,balance/80000*100)}%"></i></div>
+    <div class="muted small">Transparence · dépenses > 5 000 FCFA soumises au vote.</div>
+   </div>
+  </div>
+ </div>
+ <div class="section-head"><h2>Les 7 programmes</h2><span class="muted small">Feuille de route du Pacte Miracle</span></div>
+ <div class="grid g3">${programCards()}</div>
+ <div class="grid wide" style="margin-top:16px">
+  <div class="card"><div class="section-head" style="margin-top:0"><h2>Demandes à traiter</h2><button class="btn btn-light btn-small" onclick="go('requests')">Tout voir</button></div>
+   ${data.requests.filter(r=>r.status!=="Clôturée").slice(0,4).map(requestRow).join("")||empty("✓","Aucune demande ouverte.")}
+  </div>
+  <div class="card"><div class="section-head" style="margin-top:0"><h2>Activité récente</h2><button class="btn btn-light btn-small" onclick="go('activity')">Journal</button></div>
+   ${data.activity.slice(0,6).map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.text)}</b><div class="muted small">${esc(a.time)} · ${esc(a.actor)}</div></div></div>`).join("")||`<div class="muted">Aucune activité enregistrée.</div>`}
+  </div>
+ </div>`;
+}
+function programCards(){
+ const p=[
+ ["🏢","Cabinet de recrutement","CV-thèque, matching, préparation aux entretiens.","jobs","Responsable d’organisation"],
+ ["⚡","Brigade de l'emploi","Veille collaborative par domaine.","jobs","Vice-président(e)"],
+ ["🛒","Économie de survie","Services des membres et taxe de solidarité.","services","Chargé de communication"],
+ ["🤝","Piston collectif","Repérer les besoins et recommander le membre adapté.","jobs","Responsable d’organisation"],
+ ["📦","Centrale d'achat","Besoins groupés, commande et distribution.","purchases","Responsable d’organisation"],
+ ["🌐","Pont international","Micro-missions et opportunités en devises.","international","Vice-président(e)"],
+ ["🏗","Coopérative des diplômés","Auto-emploi, projets collectifs et fonds de garantie.","projects","Président(e)"]
+ ];
+ return p.map(x=>`<div class="module"><div class="emoji">${x[0]}</div><h3>${x[1]}</h3><p>${x[2]}</p><div class="responsible" style="margin-bottom:10px">👤 Responsable : <b>${x[4]}</b></div><button class="btn btn-light btn-small" onclick="go('${x[3]}')">Ouvrir</button></div>`).join("")
+}
+
+/* ---------- MEMBERS ---------- */
+function membersPage(){
+ return pageHead("Membres","Annuaire interne : identité, formation, compétences, besoins, réseau et projets.",
+ `<button class="btn btn-light" onclick="openModal('Importer des membres','import')">Importer</button>
+  <button class="btn btn-primary" onclick="openModal('Je m’ajoute à la communauté','member')">+ Je m’ajoute</button>`)
+ +`<div class="info"><b>81 membres prévus.</b> Actuellement, <b>${data.members.length}</b> ont renseigné leur nom dans le formulaire source. Il reste <b>${TOTAL_MEMBERS-data.members.length}</b> places à compléter. L’ajout est libre : chaque membre peut renseigner lui-même son profil. Les fonctions de direction sont gérées à part et leurs noms ne sont pas affichés.</div>
+ <div class="section-head"><h2>Annuaire</h2><span class="muted small" id="memberCount"></span></div>
+ <div class="card"><div class="filters"><input id="memberQ" placeholder="Nom, ville, compétence, secteur…" oninput="renderMembersTable()"><select id="memberStatus" onchange="renderMembersTable()"><option value="">Tous les statuts</option><option>Actif</option><option>Dormant</option></select><select id="memberSector" onchange="renderMembersTable()"><option value="">Tous les secteurs</option></select></div>
+ <div class="table-wrap"><table class="table"><thead><tr><th>Membre</th><th>Statut</th><th>Rôle</th><th>Ville</th><th>Secteur</th><th>Compétences</th><th></th></tr></thead><tbody id="membersBody"></tbody></table></div></div>`;
+}
+function renderMembersTable(){
+ const q=(document.getElementById("memberQ")?.value||"").toLowerCase(), st=document.getElementById("memberStatus")?.value||"", sec=document.getElementById("memberSector")?.value||"";
+ const list=data.members.filter(m=>{
+  const blob=(m.name+" "+m.city+" "+m.sector+" "+m.skills.join(" ")+" "+m.looking+" "+m.offer).toLowerCase();
+  return (!q||blob.includes(q))&&(!st||m.status===st)&&(!sec||m.sector===sec)
+ });
+ const sectors=[...new Set(data.members.map(m=>m.sector).filter(Boolean))].sort();
+ const sel=document.getElementById("memberSector"); if(sel&&sel.options.length===1)sectors.forEach(s=>sel.add(new Option(s,s)));
+ document.getElementById("memberCount").textContent=`${list.length} profil(s) affiché(s) · ${data.members.length} profil(s) chargé(s)`;
+ document.getElementById("membersBody").innerHTML=list.map(m=>`<tr>
+ <td><div class="member"><div class="avatar">${initials(m.name)}</div><div><b>${esc(m.name)}</b><small>${esc(m.city||"Ville non renseignée")}</small></div></div></td>
+ <td>${badge(m.status)}</td><td>${esc(m.role||"Membre")}</td><td>${esc(m.city||"—")}</td><td>${esc(m.sector||"—")}</td>
+ <td>${(m.skills||[]).slice(0,4).map(s=>`<span class="tag">${esc(s)}</span>`).join("")}</td>
+ <td><button class="btn btn-light btn-small" onclick="openMember('${m.id}')">Profil</button></td></tr>`).join("")||`<tr><td colspan="7">${empty("◎","Aucun membre ne correspond aux filtres.")}</td></tr>`;
+}
+function openMember(id){
+ const m=data.members.find(x=>String(x.id)===String(id)); if(!m)return;
+ document.getElementById("modalTitle").textContent="Profil membre";
+ document.getElementById("modalBody").innerHTML=`<div class="profile-head"><div class="profile-big">${initials(m.name)}</div><div class="profile-name"><h2>${esc(m.name)}</h2><p>${esc(m.role||"Membre")} · ${badge(m.status)}</p></div></div>
+ <div class="grid g2" style="margin-top:18px">
+ <div class="card"><h3>Identité</h3><p><b>Ville :</b> ${esc(m.city||"Non renseignée")}<br><b>Secteur :</b> ${esc(m.sector||"Non renseigné")}</p></div>
+ <div class="card"><h3>Compétences</h3><p>${(m.skills||[]).map(s=>`<span class="tag">${esc(s)}</span>`).join("")||"Non renseignées"}</p></div>
+ <div class="card"><h3>Ce que je cherche</h3><p>${esc(m.looking||"Non renseigné")}</p></div>
+ <div class="card"><h3>Ce que je peux apporter</h3><p>${esc(m.offer||"Non renseigné")}</p></div>
+ </div><div class="card" style="margin-top:12px"><h3>Projet</h3><p>${esc(m.project||"Aucun projet renseigné")}</p></div>`;
+ document.getElementById("modal").classList.add("open");
+}
+
+/* ---------- FINANCE ---------- */
+function finance(){
+ const balance=data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?Number(t.amount):-Number(t.amount)),0);
+ const ins=data.transactions.filter(t=>t.type==="Entrée").reduce((s,t)=>s+Number(t.amount),0);
+ const outs=data.transactions.filter(t=>t.type==="Sortie").reduce((s,t)=>s+Number(t.amount),0);
+ return pageHead("Caisse & finances","Livre de caisse transparent, cotisations, recettes, dépenses et traçabilité.",
+ `<button class="btn btn-primary" onclick="openModal('Nouvelle opération','transaction')">+ Opération</button>`)
+ +`<div class="grid g4">${stat("Solde",money(balance),"Calculé par le livre")}${stat("Recettes",money(ins),"Total entrées")}${stat("Dépenses",money(outs),"Total sorties")}${stat("Cotisation de référence","500 FCFA","par membre / mois")}</div>
+ <div class="grid wide" style="margin-top:16px">
+ <div class="card"><div class="section-head" style="margin-top:0"><h2>Livre de caisse</h2><button class="btn btn-light btn-small" onclick="exportTransactions()">Exporter CSV</button></div>
+ <div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Opération</th><th>Catégorie</th><th>Type</th><th>Montant</th><th>Responsable</th><th>Note</th></tr></thead><tbody>
+ ${data.transactions.slice().reverse().map(t=>`<tr><td>${esc(t.date)}</td><td><b>${esc(t.label)}</b></td><td>${esc(t.category)}</td><td>${badge(t.type)}</td><td class="${t.type==="Entrée"?"positive":"negative"}"><b>${t.type==="Entrée"?"+":"−"}${money(t.amount)}</b></td><td>${esc(t.by)}</td><td>${esc(t.note||"")}</td></tr>`).join("")}
+ </tbody></table></div></div>
+ <div class="card"><h3>Règles de contrôle</h3><ul class="small" style="line-height:1.9"><li>Livre de caisse accessible aux membres.</li><li>Bilan financier présenté chaque mois.</li><li>Toute dépense supérieure à 5 000 FCFA doit être votée.</li><li>Deux signatures pour tout retrait : Président + Trésorier.</li></ul><div class="notice">Ces règles sont issues de la charte fournie. La V1 les affiche mais ne peut pas juridiquement remplacer vos procédures internes.</div></div></div>
+ <div class="section-head"><h2>Évolution mensuelle</h2></div><div class="card">${financeChart()}</div>`;
+}
+function financeChart(){
+ const vals=[26500,26500,28000,31000,38000,46000,52000,61000,68000,72000,77000,80000];
+ const labels=["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Aoû","Sep","Oct","Nov","Déc"];
+ const max=Math.max(...vals);
+ return `<div class="chart">${vals.map((v,i)=>`<div class="bar" style="height:${Math.max(5,v/max*82)}%"><span>${labels[i]}</span></div>`).join("")}</div><div class="muted small">Graphique de référence / projection visuelle. Il ne constitue pas un historique comptable réel.</div>`;
+}
+function exportTransactions(){
+ const rows=[["Date","Opération","Catégorie","Type","Montant","Responsable","Note"],...data.transactions.map(t=>[t.date,t.label,t.category,t.type,t.amount,t.by,t.note||""])];
+ downloadCSV(rows,"generation-miracle-caisse.csv");
+}
+
+/* ---------- REQUESTS ---------- */
+function requestRow(r){return `<div class="list-item"><div class="split"><div><b>${esc(r.title)}</b><div class="muted small">${esc(r.member)} · ${esc(r.category)} · ${esc(r.date)}</div></div><div>${badge(r.priority)} ${badge(r.status)}</div></div><div class="small" style="margin-top:7px">${esc(r.detail)}</div><div class="muted small" style="margin-top:7px">Responsable : ${esc(r.owner||"À désigner")}</div></div>`}
+function requests(){
+ return pageHead("Demandes d'aide","Un système de tickets pour que chaque besoin ait un responsable et un suivi.",
+ `<button class="btn btn-primary" onclick="openModal('Nouvelle demande d’aide','request')">+ Nouvelle demande</button>`)
+ +`<div class="grid g4">${stat("Ouvertes",data.requests.filter(r=>r.status!=="Clôturée").length,"à traiter")}${stat("Urgentes",data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").length,"priorité")}${stat("En cours",data.requests.filter(r=>r.status==="En cours").length,"responsable désigné")}${stat("Clôturées",data.requests.filter(r=>r.status==="Clôturée").length,"historique")}</div>
+ <div class="section-head"><h2>File de traitement</h2><div class="filters"><select id="reqFilter" onchange="renderRequests()"><option value="">Tous</option><option>Nouvelle</option><option>En cours</option><option>Clôturée</option></select><select id="reqPriority" onchange="renderRequests()"><option value="">Toutes priorités</option><option>Urgente</option><option>Normale</option></select></div></div>
+ <div id="requestList">${data.requests.length?data.requests.map(requestCard).join(""):empty("✓","Aucune demande enregistrée.")}</div>`;
+}
+function requestCard(r){
+ return `<div class="card" style="margin-bottom:10px"><div class="split"><div><b>${esc(r.id)} · ${esc(r.title)}</b><div class="muted small">${esc(r.member)} · ${esc(r.category)} · ${esc(r.date)}</div></div><div>${badge(r.priority)} ${badge(r.status)}</div></div>
+ <p class="small">${esc(r.detail)}</p><div class="split"><span class="muted small">Responsable : <b>${esc(r.owner||"À désigner")}</b></span><div class="actions">${r.status!=="Clôturée"?`<button class="btn btn-light btn-small" onclick="advanceRequest('${r.id}')">Avancer le statut</button>`:""}<button class="btn btn-light btn-small" onclick="openRequest('${r.id}')">Détails</button></div></div></div>`;
+}
+function renderRequests(){
+ const f=document.getElementById("reqFilter")?.value||"",p=document.getElementById("reqPriority")?.value||"";
+ const list=data.requests.filter(r=>(!f||r.status===f)&&(!p||r.priority===p));
+ document.getElementById("requestList").innerHTML=list.map(requestCard).join("")||empty("✓","Aucune demande ne correspond aux filtres.");
+}
+function advanceRequest(id){
+ const r=data.requests.find(x=>x.id===id);if(!r)return;
+ const seq=["Nouvelle","En cours","Clôturée"];r.status=seq[(seq.indexOf(r.status)+1)%seq.length];
+ addActivity(`Demande ${r.id} : statut → ${r.status}`);notify(`La demande ${r.id} est maintenant « ${r.status} »`);render();toast("Statut mis à jour");
+}
+function openRequest(id){
+ const r=data.requests.find(x=>x.id===id);if(!r)return;
+ document.getElementById("modalTitle").textContent=`Demande ${r.id}`;
+ document.getElementById("modalBody").innerHTML=`<div class="card"><h3>${esc(r.title)}</h3><p>${esc(r.detail)}</p><p class="small"><b>Membre :</b> ${esc(r.member)}<br><b>Catégorie :</b> ${esc(r.category)}<br><b>Priorité :</b> ${esc(r.priority)}<br><b>Responsable :</b> ${esc(r.owner)}<br><b>Créée :</b> ${esc(r.date)}</p></div>
+ <div class="form" style="margin-top:12px"><label>Responsable</label><input id="editOwner" value="${esc(r.owner||"")}"><label>Statut</label><select id="editStatus"><option ${r.status==="Nouvelle"?"selected":""}>Nouvelle</option><option ${r.status==="En cours"?"selected":""}>En cours</option><option ${r.status==="Clôturée"?"selected":""}>Clôturée</option></select><button class="btn btn-primary" onclick="saveRequest('${r.id}')">Enregistrer</button></div>`;
+ document.getElementById("modal").classList.add("open");
+}
+function saveRequest(id){
+ const r=data.requests.find(x=>x.id===id);if(!r)return;r.owner=document.getElementById("editOwner").value;r.status=document.getElementById("editStatus").value;addActivity(`Demande ${id} mise à jour`);closeModal();render();toast("Demande mise à jour");
+}
+
+/* ---------- IDEAS ---------- */
+function ideas(){
+ return pageHead("Boîte à idées","Proposer, discuter, étudier et transformer les idées en actions.",
+ `<button class="btn btn-gold" onclick="openModal('Proposer une idée','idea')">+ Proposer une idée</button>`)
+ +`<div class="grid wide"><div class="card"><h3>Cycle d'une idée</h3><div class="timeline"><div class="timeline-item"><b>1 · Proposition</b><div class="muted small">Un membre décrit l'idée et le problème à résoudre.</div></div><div class="timeline-item"><b>2 · Étude</b><div class="muted small">Faisabilité, ressources, personnes concernées.</div></div><div class="timeline-item"><b>3 · Vote si nécessaire</b><div class="muted small">Les décisions importantes suivent les règles de gouvernance.</div></div><div class="timeline-item"><b>4 · Responsable + échéance</b><div class="muted small">Une décision sans responsable n'est pas opérationnelle.</div></div><div class="timeline-item"><b>5 · Exécution</b><div class="muted small">Suivi jusqu'à la clôture.</div></div></div></div>
+ <div class="card"><div class="section-head" style="margin-top:0"><h2>Idées de la communauté</h2><span class="muted small">${data.ideas.length} idée(s)</span></div>${data.ideas.map(i=>`<div class="list-item"><div class="split"><div><b>${esc(i.title)}</b><div class="muted small">${esc(i.author)} · ${esc(i.category)} · ${esc(i.date)}</div></div>${badge(i.status)}</div><p class="small">${esc(i.detail)}</p><div class="responsible">👤 Responsable : <b>${esc(i.responsible||"À désigner")}</b></div><div style="margin-top:9px"><button class="btn btn-light btn-small" onclick="advanceIdea('${i.id}')">Faire avancer</button></div></div>`).join("")||empty("✦","Aucune idée pour le moment.")}</div></div>`;
+}
+function advanceIdea(id){
+ const i=data.ideas.find(x=>x.id===id);if(!i)return;const seq=["À étudier","En discussion","Validée","En cours","Terminée"];i.status=seq[(seq.indexOf(i.status)+1)%seq.length];addActivity(`Idée ${i.id} : statut → ${i.status}`);save();render();toast("Idée mise à jour");
+}
+
+/* ---------- PROJECTS ---------- */
+function projects(){
+ return pageHead("Projets","Portefeuille de projets, progression, responsables et ressources.",
+ `<button class="btn btn-primary" onclick="openModal('Nouveau projet','project')">+ Nouveau projet</button>`)
+ +`<div class="kanban">${["À lancer","Planifié","En cours","Terminé"].map(st=>`<div class="kanban-col"><div class="kanban-title">${st} <span class="muted">· ${data.projects.filter(p=>p.status===st).length}</span></div>${data.projects.filter(p=>p.status===st).map(p=>projectCard(p)).join("")||`<div class="muted small" style="padding:15px 5px">Aucun projet.</div>`}</div>`).join("")}</div>
+ <div class="section-head"><h2>Portefeuille</h2></div><div class="grid g3">${data.projects.map(p=>`<div class="module"><span class="badge">${esc(p.status)}</span><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p><div class="progress"><i style="width:${p.progress}%"></i></div><div class="split small" style="margin-top:8px"><span>${p.progress}%</span><span>${money(p.budget)}</span></div><div class="responsible" style="margin-top:8px">👤 Responsable : <b>${esc(p.owner)}</b></div></div>`).join("")}</div>`;
+}
+function projectCard(p){return `<div class="task"><div class="row"><b>${esc(p.title)}</b><span class="badge">${p.progress}%</span></div><p>${esc(p.description)}</p><div class="progress"><i style="width:${p.progress}%"></i></div><button class="btn btn-light btn-small" style="margin-top:8px" onclick="openProject('${p.id}')">Ouvrir</button></div>`}
+function openProject(id){
+ const p=data.projects.find(x=>x.id===id);if(!p)return;
+ document.getElementById("modalTitle").textContent=p.title;
+ document.getElementById("modalBody").innerHTML=`<p>${esc(p.description)}</p><div class="grid g2"><div class="card"><b>Statut</b><p>${badge(p.status)}</p></div><div class="card"><b>Progression</b><p>${p.progress}%</p><div class="progress"><i style="width:${p.progress}%"></i></div></div><div class="card"><b>Responsable</b><p>${esc(p.owner)}</p></div><div class="card"><b>Budget</b><p>${money(p.budget)}</p></div></div><div class="form"><label>Progression (%)</label><input id="projectProgress" type="number" min="0" max="100" value="${p.progress}"><button class="btn btn-primary" onclick="saveProject('${p.id}')">Mettre à jour</button></div>`;
+ document.getElementById("modal").classList.add("open");
+}
+function saveProject(id){const p=data.projects.find(x=>x.id===id);p.progress=Math.max(0,Math.min(100,Number(document.getElementById("projectProgress").value)||0));if(p.progress===100)p.status="Terminé";else if(p.progress>0)p.status="En cours";addActivity(`Projet ${p.title} : progression ${p.progress}%`);closeModal();render();toast("Projet mis à jour")}
+
+/* ---------- JOBS ---------- */
+function jobs(){
+ return pageHead("Emploi & opportunités","CV-thèque, brigades de veille, opportunités et matching interne.",
+ `<button class="btn btn-primary" onclick="openModal('Signaler une opportunité','opportunity')">+ Opportunité</button>`)
+ +`<div class="grid g3"><div class="module"><div class="emoji">🏢</div><h3>Cabinet de recrutement</h3><p>Profils standardisés et recherche rapide dans la CV-thèque.</p><button class="btn btn-light btn-small" onclick="go('members')">Voir les profils</button></div><div class="module"><div class="emoji">⚡</div><h3>Brigades de l'emploi</h3><p>Droit & administration · Commerce & gestion · BTP & technique · Santé & social · Création · Entrepreneuriat.</p><span class="badge">Veille</span></div><div class="module"><div class="emoji">🤝</div><h3>Matching</h3><p>Identifier les membres dont les compétences correspondent à une opportunité.</p><span class="badge blue">Processus interne</span></div></div>
+ <div class="section-head"><h2>Opportunités signalées</h2><span class="muted small">Objectif : partage rapide puis qualification</span></div>
+ <div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Opportunité</th><th>Secteur</th><th>Lieu</th><th>Délai</th><th>Responsable</th><th>Statut</th><th></th></tr></thead><tbody>${data.opportunities.map(o=>`<tr><td><b>${esc(o.title)}</b><br><small>${esc(o.company||"")}</small></td><td>${esc(o.sector)}</td><td>${esc(o.location)}</td><td>${esc(o.deadline)}</td><td>${esc(o.responsible||"Responsable d’organisation")}</td><td>${badge(o.status)}</td><td><button class="btn btn-light btn-small" onclick="matchOpportunity('${o.id}')">Matcher</button></td></tr>`).join("")||`<tr><td colspan="6">${empty("⚡","Aucune opportunité enregistrée.")}</td></tr>`}</tbody></table></div></div>`;
+}
+function matchOpportunity(id){
+ const o=data.opportunities.find(x=>x.id===id);if(!o)return;
+ const words=(o.sector+" "+o.skills).toLowerCase();
+ const scored=data.members.map(m=>({m,score:m.skills.reduce((n,s)=>n+(words.includes(s.toLowerCase())?1:0),0)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).slice(0,5);
+ document.getElementById("modalTitle").textContent="Matching — "+o.title;
+ document.getElementById("modalBody").innerHTML=`<p class="small">Correspondances trouvées à partir des compétences renseignées dans les profils chargés.</p>${scored.map((x,i)=>`<div class="list-item"><div class="split"><div class="member"><div class="avatar">${initials(x.m.name)}</div><div><b>${esc(x.m.name)}</b><small>${esc(x.m.sector)}</small></div></div><span class="badge blue">Correspondance ${i+1}</span></div><div class="small" style="margin-top:7px">${x.m.skills.map(s=>`<span class="tag">${esc(s)}</span>`).join("")}</div></div>`).join("")||empty("◎","Aucun profil correspondant avec les données disponibles.")}`;
+ document.getElementById("modal").classList.add("open");
+}
+
+/* ---------- SERVICES ---------- */
+function services(){
+ const cats=["Beauté & soin","Tech & informatique","Commerce","Cours & formation","Services pratiques","Artisanat & cuisine","Conseil & rédaction"];
+ return pageHead("Catalogue Miracle","Circuit économique interne : les membres proposent leurs compétences et services au groupe.",
+ `<button class="btn btn-primary" onclick="openModal('Déclarer un service','service')">+ Déclarer mon service</button>`)
+ +`<div class="notice">Le manuel prévoit une taxe de solidarité de 5% sur les services rendus entre membres afin d'alimenter le Fonds de Transport.</div>
+ <div class="grid g3" style="margin-top:16px">${cats.map((c,i)=>`<div class="module"><div class="emoji">${["💇","💻","🛍️","📚","🚚","🍳","✍️"][i]}</div><h3>${c}</h3><p>${["Tresses, coiffure, manucure, maquillage","Dépannage PC, logiciels, CV, design","Crédit téléphonique, produits alimentaires, friperie","Cours particuliers et soutien scolaire","Livraison, gardiennage, déménagement","Cuisine, couture, artisanat","CV, lettres et démarches administratives"][i]}</p><span class="badge">${data.services.filter(s=>s.category===c).length} service(s)</span></div>`).join("")}</div>
+ <div class="section-head"><h2>Services déclarés</h2></div><div class="card">${data.services.map(s=>`<div class="list-item"><div class="split"><div><b>${esc(s.title)}</b><div class="muted small">${esc(s.member)} · ${esc(s.category)}</div></div><span class="badge">${money(s.price)}</span></div><p class="small">${esc(s.detail)}</p><div class="responsible">👤 Responsable : <b>${esc(s.responsible||"Chargé de communication")}</b></div></div>`).join("")||empty("▦","Aucun service déclaré pour le moment.")}</div>`;
+}
+
+/* ---------- PURCHASES ---------- */
+function purchases(){
+ return pageHead("Centrale d'achat","Collecter les besoins, regrouper les commandes et suivre la distribution.",
+ `<button class="btn btn-primary" onclick="openModal('Exprimer un besoin','purchase')">+ Exprimer un besoin</button>`)
+ +`<div class="grid g3"><div class="module"><div class="emoji">1️⃣</div><h3>Collecte des besoins</h3><p>Chaque membre indique le produit et la quantité souhaitée.</p><div class="responsible">👤 Responsable : <b>Responsable d’organisation</b></div></div><div class="module"><div class="emoji">2️⃣</div><h3>Commande groupée</h3><p>Le responsable compile les besoins et contacte le fournisseur.</p><div class="responsible">👤 Responsable : <b>Responsable d’organisation</b></div></div><div class="module"><div class="emoji">3️⃣</div><h3>Distribution</h3><p>Suivi des paiements, livraison et permanence de distribution.</p><div class="responsible">👤 Responsable : <b>Trésorier(e)</b></div></div></div>
+ <div class="section-head"><h2>Produits prioritaires</h2></div><div class="card"><div class="grid g3">${["Riz","Huile","Sucre / sel / farine","Savon","Fournitures scolaires","Crédit téléphonique","Hygiène","Charbon / gaz","Bouillie en poudre"].map(x=>`<div class="list-item"><b>${x}</b><div class="muted small">Besoin à recenser</div></div>`).join("")}</div></div>
+ <div class="section-head"><h2>Règles opérationnelles</h2></div><div class="card"><ol class="small" style="line-height:1.9"><li>Collecte des besoins.</li><li>Commande groupée.</li><li>Avance de trésorerie si les conditions sont réunies.</li><li>Distribution.</li><li>Marge de gestion prévue : 3 à 5%.</li></ol></div>`;
+}
+
+/* ---------- INTERNATIONAL ---------- */
+function international(){
+ return pageHead("Pont international","Transformer les réseaux des membres à l'étranger en opportunités accessibles au groupe.",
+ `<button class="btn btn-primary" onclick="openModal('Signaler une mission internationale','international')">+ Mission</button>`)
+ +`<div class="grid g3">${["Saisie de données","Correction de textes","Traduction","Enquêtes en ligne","Assistance virtuelle","Micro-tâches numériques"].map((x,i)=>`<div class="module"><div class="emoji">${["⌨️","📝","🌍","📋","📧","🤖"][i]}</div><h3>${x}</h3><p>Mission à qualifier : rémunération, délai, compétences et attribution.</p><span class="badge blue">Disponible</span></div>`).join("")}</div>
+ <div class="notice" style="margin-top:16px">Le manuel prévoit une commission de 10% du paiement pour les missions du Pont, destinée à la caisse commune et au développement du programme.</div><div class="responsible" style="margin-top:10px">👤 Responsable : <b>Vice-président(e)</b></div>`;
+}
+
+/* ---------- VOTES ---------- */
+function votes(){
+ return pageHead("Votes & décisions","Consigner les décisions, vérifier le quorum, voter et conserver les résultats.",
+ `<button class="btn btn-primary" onclick="openModal('Nouvelle décision','vote')">+ Soumettre au vote</button>`)
+ +`<div class="grid g3"><div class="module"><h3>Décisions courantes</h3><p>Majorité simple.</p><span class="badge">Gouvernance</span></div><div class="module"><h3>Décisions importantes</h3><p>Majorité des 2/3 selon la charte.</p><span class="badge gold">2/3</span></div><div class="module"><h3>Quorum</h3><p>Au moins la moitié des membres actifs présents ou représentés.</p><span class="badge blue">Quorum</span></div></div>
+ <div class="section-head"><h2>Décisions</h2></div><div class="grid g2">${data.votes.map(v=>`<div class="card"><div class="split"><b>${esc(v.id)}</b>${badge(v.status)}</div><h3 style="margin-top:9px">${esc(v.title)}</h3><p class="small">${esc(v.detail)}</p><div class="grid g3 small"><div><b>${v.for}</b><br><span class="muted">Pour</span></div><div><b>${v.against}</b><br><span class="muted">Contre</span></div><div><b>${v.abstain}</b><br><span class="muted">Abst.</span></div></div><div class="split small" style="margin-top:13px"><span class="muted">Échéance : ${esc(v.deadline||"—")}</span><span class="responsible">👤 ${esc(v.responsible||"Secrétaire")}</span><button class="btn btn-light btn-small" onclick="vote('${v.id}')">Voter</button></div></div>`).join("")||empty("☑","Aucune décision.")}</div>`;
+}
+function vote(id){
+ const v=data.votes.find(x=>x.id===id);if(!v)return;
+ if(v.status==="Brouillon")v.status="Ouvert";
+ document.getElementById("modalTitle").textContent="Voter — "+v.title;
+ document.getElementById("modalBody").innerHTML=`<p>${esc(v.detail)}</p><div class="grid g3"><button class="btn btn-primary" onclick="castVote('${id}','for')">✓ Pour</button><button class="btn btn-danger" onclick="castVote('${id}','against')">✕ Contre</button><button class="btn btn-light" onclick="castVote('${id}','abstain')">— Abstention</button></div><p class="muted small" style="margin-top:12px">Prototype : le vote est local à ce navigateur. La production devra empêcher le double vote côté serveur.</p>`;
+ document.getElementById("modal").classList.add("open");
+}
+function castVote(id,type){const v=data.votes.find(x=>x.id===id);if(!v)return;v[type]++;v.status="Ouvert";addActivity(`Vote enregistré sur ${v.id}`);closeModal();render();toast("Vote enregistré dans le prototype")}
+
+/* ---------- MEETINGS ---------- */
+function meetings(){
+ return pageHead("Réunions","Ordre du jour, réunions mensuelles, comptes-rendus et actions décidées.",
+ `<button class="btn btn-primary" onclick="openModal('Programmer une réunion','meeting')">+ Programmer</button>`)
+ +`<div class="grid g2"><div class="card"><h3>Règle de réunion</h3><p class="small">Réunion mensuelle, date fixée à l'avance. Ordre du jour partagé 48h avant. Compte-rendu dans les 24h, y compris pour les absents.</p><span class="badge">Mensuel</span></div><div class="card"><h3>Règle d'action</h3><p class="small">Chaque décision doit être associée à un responsable et à une échéance.</p><span class="badge gold">Responsable + date</span></div></div>
+ <div class="section-head"><h2>Calendrier</h2></div><div class="card">${data.meetings.map(m=>`<div class="list-item"><div class="split"><div><b>${esc(m.title)}</b><div class="muted small">${esc(m.date)} · ${esc(m.time)}</div></div><span class="badge">${esc(m.status)}</span></div><p class="small">${esc(m.agenda)}</p><div class="responsible">👤 Responsable : <b>${esc(m.responsible||"Secrétaire")}</b></div></div>`).join("")||empty("◷","Aucune réunion programmée.")}</div>`;
+}
+
+/* ---------- ACTIVITY / NOTIFICATIONS ---------- */
+function activity(){
+ return pageHead("Journal d'activité","Traçabilité locale des actions effectuées dans la plateforme.",
+ `<button class="btn btn-light" onclick="clearActivity()">Effacer le journal local</button>`)
+ +`<div class="card">${data.activity.map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.text)}</b><div class="muted small">${esc(a.time)} · ${esc(a.actor)}</div></div></div>`).join("")||empty("⌁","Aucune activité.")}</div>`;
+}
+function notifications(){
+ return pageHead("Notifications","Alertes, demandes, projets et décisions qui nécessitent votre attention.",
+ `<button class="btn btn-light" onclick="readNotifications()">Tout marquer comme lu</button>`)
+ +`<div class="card">${data.notifications.map(n=>`<div class="activity"><div class="dot"></div><div><b>${esc(n.text)}</b><div class="muted small">${esc(n.time)} ${n.read?"· Lu":"· Nouveau"}</div></div></div>`).join("")||empty("🔔","Aucune notification.")}</div>`;
+}
+function readNotifications(){data.notifications.forEach(n=>n.read=true);save();render();toast("Notifications marquées comme lues")}
+function clearActivity(){if(confirm("Effacer le journal local ?")){data.activity=[];save();render()}}
+
+/* ---------- SETTINGS ---------- */
+function settings(){
+ return pageHead("Paramètres","Configuration de la plateforme et préparation au branchement de la base de données.",
+ `<button class="btn btn-primary" onclick="exportBackup()">Exporter mes données</button>`)
+ +`<div class="grid g2"><div class="card"><h3>Identité de la communauté</h3><div class="form"><label>Nom</label><input value="Génération Miracle" id="orgName"><label>Devise</label><input value="FCFA" id="currency"><label>Président</label><input value="Elisée Melchi Mabondzo" id="president"><button class="btn btn-primary" onclick="saveSettings()">Enregistrer</button></div></div>
+ <div class="card"><h3>Tour de contrôle</h3><p class="small">Accès de pilotage protégé par le mot de passe <b>Generation_miracle</b> dans ce prototype. Pour une mise en production, le contrôle doit être déplacé côté serveur.</p><button class="btn btn-light btn-small" onclick="go('control')">Ouvrir le tour de contrôle</button></div><div class="card"><h3>Connexion des données</h3><p class="small">Cette V1 autonome utilise <b>localStorage</b>. Pour un vrai temps réel entre les 81 membres, il faut connecter une base serveur avec authentification, droits d'accès et synchronisation temps réel.</p><div class="info">Google Sheets : utilisez le module Import pour transférer les profils dans la plateforme. Ne placez pas une clé secrète Google dans un fichier HTML public.</div></div>
+ <div class="card"><h3>Rôles recommandés</h3><p class="small">Président · Vice-président · Secrétaire · Trésorier · Adjoint trésorier · Responsable organisation · Adjoints organisation · Chargé communication · Adjoint communication.</p></div>
+ <div class="card"><h3>Données locales</h3><p class="small">Membres : ${data.members.length} / ${TOTAL_MEMBERS}<br>Profils à compléter : ${TOTAL_MEMBERS-data.members.length}<br>Idées : ${data.ideas.length}<br>Demandes : ${data.requests.length}<br>Transactions : ${data.transactions.length}<br>Projets : ${data.projects.length}</p><button class="btn btn-danger btn-small" onclick="resetDemo()">Réinitialiser la démo</button></div></div>`;
+}
+function saveSettings(){addActivity("Paramètres généraux enregistrés");toast("Paramètres enregistrés");render()}
+
+/* ---------- SEARCH ---------- */
+function searchPage(q){
+ const query=q.toLowerCase();
+ const ms=data.members.filter(m=>(m.name+" "+m.city+" "+m.sector+" "+m.skills.join(" ")+" "+m.looking+" "+m.offer).toLowerCase().includes(query)).slice(0,8);
+ const ps=data.projects.filter(p=>(p.title+" "+p.description).toLowerCase().includes(query)).slice(0,6);
+ const rs=data.requests.filter(r=>(r.title+" "+r.detail+" "+r.category).toLowerCase().includes(query)).slice(0,6);
+ const is=data.ideas.filter(i=>(i.title+" "+i.detail).toLowerCase().includes(query)).slice(0,6);
+ return pageHead("Recherche","Résultats pour « "+esc(q)+" »",`<button class="btn btn-light" onclick="go('dashboard')">Retour</button>`)
+ +`<div class="grid g2"><div class="card"><h3>Membres (${ms.length})</h3>${ms.map(m=>`<div class="list-item"><div class="member"><div class="avatar">${initials(m.name)}</div><div><b>${esc(m.name)}</b><small>${esc(m.sector)} · ${esc(m.city)}</small></div></div></div>`).join("")||`<div class="muted">Aucun résultat.</div>`}</div>
+ <div class="card"><h3>Projets (${ps.length})</h3>${ps.map(p=>`<div class="list-item"><b>${esc(p.title)}</b><div class="muted small">${esc(p.description)}</div></div>`).join("")||`<div class="muted">Aucun résultat.</div>`}</div>
+ <div class="card"><h3>Demandes (${rs.length})</h3>${rs.map(r=>`<div class="list-item"><b>${esc(r.title)}</b><div class="muted small">${esc(r.category)} · ${esc(r.status)}</div></div>`).join("")||`<div class="muted">Aucun résultat.</div>`}</div>
+ <div class="card"><h3>Idées (${is.length})</h3>${is.map(i=>`<div class="list-item"><b>${esc(i.title)}</b><div class="muted small">${esc(i.status)}</div></div>`).join("")||`<div class="muted">Aucun résultat.</div>`}</div></div>`;
+}
+
+/* ---------- MODALS ---------- */
+function openModal(title,type){
+ modalType=type;document.getElementById("modalTitle").textContent=title;
+ let b="";
+ if(type==="request")b=`<div class="form"><label>Objet</label><input id="fTitle" placeholder="Ex. besoin de transport pour un entretien"><label>Catégorie</label><select id="fCat"><option>Emploi</option><option>Transport</option><option>Compétence</option><option>Projet</option><option>Financier</option><option>Formation</option><option>Autre</option></select><label>Priorité</label><select id="fPriority"><option>Normale</option><option>Urgente</option></select><label>Description</label><textarea id="fDetail" placeholder="Décris précisément la demande et ce qui serait utile."></textarea><button class="btn btn-primary" onclick="submitRequest()">Créer la demande</button></div>`;
+ else if(type==="idea")b=`<div class="form"><label>Titre</label><input id="fTitle" placeholder="Ex. créer une centrale de fournitures"><label>Type</label><select id="fCat"><option>Projet</option><option>Suggestion</option><option>Organisation</option><option>Entraide</option><option>Emploi</option></select><label>Description</label><textarea id="fDetail" placeholder="Quel problème ? Quelle idée ? De quoi avez-vous besoin ?"></textarea><button class="btn btn-gold" onclick="submitIdea()">Soumettre l'idée</button></div>`;
+ else if(type==="transaction")b=`<div class="form"><label>Libellé</label><input id="fLabel" placeholder="Ex. cotisation septembre"><label>Type</label><select id="fType"><option>Entrée</option><option>Sortie</option></select><label>Catégorie</label><select id="fCat"><option>Cotisations</option><option>Taxe de solidarité</option><option>Commission</option><option>Fonds de Transport</option><option>Fonds de Garantie</option><option>Achats</option><option>Transport</option><option>Autre</option></select><label>Montant (FCFA)</label><input id="fAmount" type="number" min="0" placeholder="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><label>Note / justificatif</label><textarea id="fNote" placeholder="Référence ou explication"></textarea><button class="btn btn-primary" onclick="submitTransaction()">Enregistrer</button></div>`;
+ else if(type==="project")b=`<div class="form"><label>Nom du projet</label><input id="fTitle"><label>Description</label><textarea id="fDetail"></textarea><label>Responsable</label><input id="fOwner" placeholder="Nom / fonction"><label>Budget initial (FCFA)</label><input id="fAmount" type="number" min="0" value="0"><button class="btn btn-primary" onclick="submitProject()">Créer le projet</button></div>`;
+ else if(type==="opportunity")b=`<div class="form"><label>Intitulé</label><input id="fTitle"><label>Entreprise / source</label><input id="fCompany"><label>Secteur</label><input id="fSector" placeholder="Ex. BTP, maintenance, commerce…"><label>Lieu</label><input id="fLocation"><label>Compétences recherchées</label><input id="fSkills"><label>Délai</label><input id="fDeadline" type="date"><button class="btn btn-primary" onclick="submitOpportunity()">Enregistrer l'opportunité</button></div>`;
+ else if(type==="service")b=`<div class="form"><label>Service proposé</label><input id="fTitle" placeholder="Ex. dépannage informatique"><label>Catégorie</label><select id="fCat"><option>Beauté & soin</option><option>Tech & informatique</option><option>Commerce</option><option>Cours & formation</option><option>Services pratiques</option><option>Artisanat & cuisine</option><option>Conseil & rédaction</option></select><label>Prix indicatif (FCFA)</label><input id="fAmount" type="number" min="0"><label>Description</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitService()">Déclarer mon service</button></div>`;
+ else if(type==="purchase")b=`<div class="form"><label>Produit</label><input id="fTitle" placeholder="Ex. riz 25 kg"><label>Quantité</label><input id="fQty" type="number" min="1"><label>Note</label><textarea id="fDetail" placeholder="Marque, qualité, période souhaitée…"></textarea><button class="btn btn-primary" onclick="submitPurchase()">Enregistrer le besoin</button></div>`;
+ else if(type==="international")b=`<div class="form"><label>Mission</label><input id="fTitle"><label>Type</label><select id="fCat"><option>Saisie de données</option><option>Correction</option><option>Traduction</option><option>Enquête</option><option>Assistance virtuelle</option><option>Micro-tâches</option></select><label>Rémunération</label><input id="fAmount" placeholder="Ex. 50 000 FCFA"><label>Délai</label><input id="fDeadline" type="date"><label>Description</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitInternational()">Signaler la mission</button></div>`;
+ else if(type==="vote")b=`<div class="form"><label>Question / décision</label><input id="fTitle"><label>Description</label><textarea id="fDetail"></textarea><label>Date limite</label><input id="fDeadline" type="date"><button class="btn btn-primary" onclick="submitVote()">Créer le vote</button></div>`;
+ else if(type==="meeting")b=`<div class="form"><label>Titre</label><input id="fTitle" value="Réunion mensuelle — Génération Miracle"><label>Date</label><input id="fDate" type="date"><label>Heure</label><input id="fTime" type="time"><label>Ordre du jour</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitMeeting()">Programmer</button></div>`;
+ else if(type==="member")b=`<div class="info">Accès libre : ce formulaire permet à chaque membre de s’ajouter lui-même. Ne renseignez que les informations que vous souhaitez partager avec le groupe.</div><div class="form"><label>Nom complet</label><input id="fName"><label>Statut</label><select id="fStatus"><option>Actif</option><option>Dormant</option></select><label>Ville</label><input id="fCity"><label>Secteur</label><input id="fSector"><label>Compétences (séparées par virgules)</label><input id="fSkills"><label>Ce que je cherche</label><input id="fLooking"><label>Ce que je peux apporter</label><input id="fOffer"><label>Projet</label><textarea id="fProject"></textarea><button class="btn btn-primary" onclick="submitMember()">Ajouter</button></div>`;
+ else if(type==="controlTransaction")b=`<div class="form"><div class="control-lock">Action de pilotage · le responsable financier reste visible dans le livre.</div><label>Libellé</label><input id="fLabel"><label>Type</label><select id="fType"><option>Entrée</option><option>Sortie</option></select><label>Catégorie</label><input id="fCat" value="Ajustement / correction"><label>Montant (FCFA)</label><input id="fAmount" type="number" min="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><label>Justification</label><textarea id="fNote"></textarea><button class="btn btn-primary" onclick="controlTransaction()">Enregistrer l'ajustement</button></div>`;
+else if(type==="controlIdea")b=`<div class="form"><label>Idée</label><select id="fIdea">${data.ideas.map(i=>`<option value="${i.id}">${esc(i.title)}</option>`).join("")}</select><label>Statut</label><select id="fStatus"><option>Validée</option><option>En cours</option><option>À étudier</option><option>Refusée</option><option>Terminée</option></select><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlIdea()">Appliquer</button></div>`;
+else if(type==="controlNotification")b=`<div class="form"><label>Titre / objet</label><input id="fTitle"><label>Message</label><textarea id="fDetail"></textarea><label>Responsable de la diffusion</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlNotification()">Envoyer à la communauté</button></div>`;
+else if(type==="controlAssign")b=`<div class="form"><label>Élément</label><select id="fTarget">${data.requests.map(x=>`<option value="request|${x.id}">Demande · ${esc(x.title)}</option>`).join("")}${data.projects.map(x=>`<option value="project|${x.id}">Projet · ${esc(x.title)}</option>`).join("")}${data.ideas.map(x=>`<option value="idea|${x.id}">Idée · ${esc(x.title)}</option>`).join("")}${data.opportunities.map(x=>`<option value="opportunity|${x.id}">Opportunité · ${esc(x.title)}</option>`).join("")}</select><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlAssign()">Attribuer</button></div>`;
+else if(type==="controlProject")b=`<div class="form"><label>Projet</label><select id="fProject">${data.projects.map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join("")}</select><label>Progression (%)</label><input id="fProgress" type="number" min="0" max="100"><label>Budget (FCFA)</label><input id="fAmount" type="number" min="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlProject()">Mettre à jour</button></div>`;
+else if(type==="controlMembers")b=`<div class="form"><label>Membre</label><select id="fMember">${data.members.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select><label>Statut</label><select id="fStatus"><option>Actif</option><option>Dormant</option></select><label>Secteur</label><input id="fSector"><label>Ce que la personne cherche</label><input id="fLooking"><label>Ce qu'elle apporte</label><input id="fOffer"><button class="btn btn-primary" onclick="controlMember()">Mettre à jour</button></div>`;
+else if(type==="import")b=`<div class="form"><div class="info">Collez ici des lignes CSV ou TSV. Colonnes recommandées : <b>Nom, Statut, Rôle, Ville, Secteur, Compétences, Recherche, Offre, Projet</b>.</div><textarea id="importText" style="min-height:220px" placeholder="Nom,Statut,Rôle,Ville,Secteur,Compétences,Recherche,Offre,Projet"></textarea><button class="btn btn-primary" onclick="importMembers()">Importer</button></div>`;
+ else if(type==="post")b=`<div class="form"><label>Titre</label><input id="fTitle"><label>Publication</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitPost()">Publier</button></div>`;
+ else b=`<div class="info">Cette fonction sera connectée à la base serveur dans la version multi-utilisateur. Le prototype actuel enregistre les données dans ce navigateur.</div>`;
+ document.getElementById("modalBody").innerHTML=b;document.getElementById("modal").classList.add("open");
+}
+function closeModal(){document.getElementById("modal").classList.remove("open");modalType=null}
+document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
+function controlTransaction(){if(!requireControl())return;const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();data.transactions.push({id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner"),note:v("fNote")});addActivity("Tour de contrôle : caisse ajustée · "+label);closeModal();render();toast("Caisse ajustée")}
+function controlIdea(){if(!requireControl())return;const i=data.ideas.find(x=>x.id===v("fIdea"));if(!i)return;i.status=v("fStatus");i.responsible=v("fOwner");addActivity("Tour de contrôle : idée mise à jour · "+i.title);notify("Mise à jour d'une idée : "+i.title);closeModal();render();toast("Idée mise à jour")}
+function controlNotification(){if(!requireControl())return;const title=v("fTitle"),detail=v("fDetail");if(!title||!detail)return required();data.notifications.unshift({id:uid("N"),text:title+" — "+detail,time:now(),read:false,responsible:v("fOwner")});addActivity("Notification envoyée : "+title);closeModal();render();toast("Notification envoyée")}
+function controlAssign(){if(!requireControl())return;const [type,id]=v("fTarget").split("|"),owner=v("fOwner");let obj=null;if(type==="request")obj=data.requests.find(x=>x.id===id),obj&&(obj.owner=owner);if(type==="project")obj=data.projects.find(x=>x.id===id),obj&&(obj.owner=owner);if(type==="idea")obj=data.ideas.find(x=>x.id===id),obj&&(obj.responsible=owner);if(type==="opportunity")obj=data.opportunities.find(x=>x.id===id),obj&&(obj.responsible=owner);if(obj){addActivity("Tour de contrôle : responsable attribué à "+owner);closeModal();render();toast("Responsable attribué")}}
+function controlProject(){if(!requireControl())return;const p=data.projects.find(x=>x.id===v("fProject"));if(!p)return;p.progress=Math.max(0,Math.min(100,Number(v("fProgress"))||0));p.budget=Number(v("fAmount"))||0;p.owner=v("fOwner");p.status=p.progress===100?"Terminé":p.progress>0?"En cours":"Planifié";addActivity("Tour de contrôle : projet mis à jour · "+p.title);closeModal();render();toast("Projet mis à jour")}
+function controlMember(){if(!requireControl())return;const m=data.members.find(x=>String(x.id)===v("fMember"));if(!m)return;m.status=v("fStatus");m.sector=v("fSector");m.looking=v("fLooking");m.offer=v("fOffer");addActivity("Tour de contrôle : profil membre mis à jour · "+m.name);closeModal();render();toast("Profil mis à jour")}
+function submitRequest(){const title=v("fTitle"),detail=v("fDetail");if(!title)return required();data.requests.unshift({id:uid("GM"),title,detail,member:"Elisée Melchi Mabondzo",category:v("fCat"),priority:v("fPriority"),status:"Nouvelle",owner:"Responsable d’organisation",date:new Date().toISOString().slice(0,10)});addActivity("Nouvelle demande d'aide : "+title);notify("Nouvelle demande d'aide à traiter : "+title);closeModal();render();toast("Demande créée")}
+function submitIdea(){const title=v("fTitle"),detail=v("fDetail");if(!title)return required();data.ideas.unshift({id:uid("I"),title,detail,category:v("fCat"),author:"Membre",responsible:"Responsable d’organisation",status:"À étudier",date:new Date().toISOString().slice(0,10)});addActivity("Nouvelle idée proposée : "+title);notify("Nouvelle idée : "+title);closeModal();render();toast("Idée envoyée")}
+function submitTransaction(){const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();data.transactions.push({id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner")||"Trésorier(e)",note:v("fNote")});addActivity("Opération financière : "+label);closeModal();render();toast("Opération enregistrée")}
+function submitProject(){const title=v("fTitle");if(!title)return required();data.projects.push({id:uid("P"),title,description:v("fDetail"),status:"À lancer",progress:0,owner:v("fOwner")||"À désigner",budget:Number(v("fAmount"))||0});addActivity("Nouveau projet : "+title);notify("Nouveau projet créé : "+title);closeModal();render();toast("Projet créé")}
+function submitOpportunity(){const title=v("fTitle");if(!title)return required();data.opportunities.unshift({id:uid("O"),title,company:v("fCompany"),sector:v("fSector"),location:v("fLocation"),skills:v("fSkills"),deadline:v("fDeadline"),status:"À analyser",responsible:"Responsable d’organisation"});addActivity("Opportunité signalée : "+title);notify("Nouvelle opportunité à analyser : "+title);closeModal();render();toast("Opportunité enregistrée")}
+function submitService(){const title=v("fTitle");if(!title)return required();data.services.unshift({id:uid("S"),title,category:v("fCat"),price:Number(v("fAmount"))||0,detail:v("fDetail"),member:"Membre",responsible:"Chargé de communication"});addActivity("Service déclaré : "+title);closeModal();render();toast("Service ajouté")}
+function submitPurchase(){const title=v("fTitle");if(!title)return required();addActivity("Besoin centrale d'achat : "+title+" × "+v("fQty"));notify("Nouveau besoin dans la centrale d'achat : "+title);closeModal();render();toast("Besoin enregistré")}
+function submitInternational(){const title=v("fTitle");if(!title)return required();addActivity("Mission internationale signalée : "+title);notify("Nouvelle mission internationale : "+title);closeModal();render();toast("Mission signalée")}
+function submitVote(){const title=v("fTitle");if(!title)return required();data.votes.unshift({id:uid("V"),title,detail:v("fDetail"),status:"Brouillon",for:0,against:0,abstain:0,deadline:v("fDeadline")});addActivity("Nouveau vote préparé : "+title);closeModal();render();toast("Vote créé")}
+function submitMeeting(){const title=v("fTitle")||"Réunion";if(!v("fDate"))return required();data.meetings.push({id:uid("M"),title,date:v("fDate"),time:v("fTime"),agenda:v("fDetail"),status:"Programmée",responsible:"Secrétaire"});addActivity("Réunion programmée : "+title);notify("Réunion programmée : "+title);closeModal();render();toast("Réunion programmée")}
+function submitMember(){const name=v("fName");if(!name)return required();if(data.members.length>=TOTAL_MEMBERS){toast("Les 81 places sont déjà renseignées");return} data.members.push({id:uid("M"),name,status:v("fStatus"),role:"Membre",city:v("fCity"),sector:v("fSector"),skills:v("fSkills").split(",").map(x=>x.trim()).filter(Boolean),looking:v("fLooking"),offer:v("fOffer"),project:v("fProject")});addActivity("Nouveau membre ajouté : "+name);closeModal();render();toast("Membre ajouté")}
+function importMembers(){
+ const text=v("importText");if(!text)return required();
+ const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(lines.length<2){toast("Ajoutez une ligne d'en-têtes et au moins une ligne");return}
+ const delim=lines[0].includes("\t")?"\t":",";
+ const head=lines[0].split(delim).map(x=>x.trim().toLowerCase());
+ let count=0;
+ lines.slice(1).forEach(line=>{const c=line.split(delim).map(x=>x.trim().replace(/^"|"$/g,""));if(!c[0])return;
+  const get=(...names)=>{const i=head.findIndex(h=>names.includes(h));return i>=0?c[i]||"":""};
+  const name=get("nom","nom complet","name");const existing=data.members.find(m=>m.name.toLowerCase()===name.toLowerCase());
+  const obj={id:existing?.id||uid("M"),name,status:get("statut","status")||"Actif",role:get("rôle","role")||"Membre",city:get("ville","city"),sector:get("secteur","sector"),skills:get("compétences","competences","skills").split(/[;,]/).map(x=>x.trim()).filter(Boolean),looking:get("recherche","ce que je cherche"),offer:get("offre","ce que je peux apporter"),project:get("projet")};
+  if(existing)Object.assign(existing,obj);else data.members.push(obj);count++;
+ });
+ addActivity(count+" profil(s) importé(s) ou mis à jour");save();closeModal();render();toast(count+" profil(s) importé(s)");
+}
+function submitPost(){const title=v("fTitle");if(!title)return required();addActivity("Publication : "+title);notify("Nouvelle publication : "+title);closeModal();render();toast("Publication enregistrée")}
+function v(id){return document.getElementById(id)?.value?.trim()||""}
+function required(){toast("Veuillez remplir les champs obligatoires")}
+function showHelp(){openModal("Aide","help");document.getElementById("modalBody").innerHTML=`<div class="info">Cette V1 est un prototype autonome. Les données sont enregistrées dans le navigateur. Pour une vraie plateforme partagée par tous les membres, branchez ce frontend à une base serveur avec authentification et temps réel.</div><h3 style="margin-top:18px">Raccourcis</h3><ul class="small" style="line-height:1.9"><li>Utilisez la recherche globale pour trouver rapidement des membres, projets, demandes ou idées.</li><li>Le module Import accepte CSV/TSV pour charger les profils du Google Sheet.</li><li>Exportez régulièrement vos données depuis Paramètres.</li></ul>`}
+
+/* ---------- IMPORT / EXPORT / RESET ---------- */
+function downloadCSV(rows,name){const csv=rows.map(r=>r.map(x=>`"${String(x??"").replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
+function exportBackup(){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="generation-miracle-backup.json";a.click();URL.revokeObjectURL(a.href);toast("Sauvegarde exportée")}
+function resetDemo(){if(confirm("Réinitialiser toutes les données locales de la plateforme ?")){localStorage.removeItem(KEY);data=loadData();go("dashboard");toast("Démo réinitialisée")}}
+
+
+/* ---------- TOUR DE CONTRÔLE ---------- */
+const CONTROL_PASSWORD="Generation_miracle";
+function isControlAuthenticated(){return sessionStorage.getItem("gm_control_auth")==="1"}
+function controlPage(){
+ if(!isControlAuthenticated()){
+  return pageHead("Tour de contrôle","Zone réservée au pilotage de la plateforme.",
+   `<button class="btn btn-primary" onclick="openControlLogin()">🔐 Se connecter</button>`)
+   +`<div class="card" style="max-width:720px"><div class="control-lock"><b>Accès protégé.</b><br>Cette zone permet d'ajuster les données, de valider les idées, d'envoyer des notifications et d'attribuer les responsables.</div><div style="margin-top:16px">${empty("🔐","Connectez-vous avec le mot de passe de pilotage.")}</div></div>`;
+ }
+ const balance=data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?Number(t.amount):-Number(t.amount)),0);
+ return pageHead("Tour de contrôle","Pilotage réservé aux personnes autorisées.",
+ `<span class="badge">🔓 Session de contrôle active</span><button class="btn btn-light" onclick="logoutControl()">Déconnexion</button>`)
+ +`<div class="control-lock"><b>Responsabilité du pilotage</b> · Toute modification importante est enregistrée dans le journal d'activité. Le tour de contrôle peut modifier les montants, statuts, responsables, idées, notifications et données opérationnelles.</div>
+ <div class="grid g4" style="margin-top:16px">${stat("Membres",`${data.members.length}/${TOTAL_MEMBERS}`,"inscriptions")}${stat("Solde",money(balance),"ajustable par le Trésorier(e)")}${stat("Idées à étudier",data.ideas.filter(i=>i.status==="À étudier").length,"validation possible")}${stat("Notifications non lues",data.notifications.filter(n=>!n.read).length,"diffusion")}</div>
+ <div class="section-head"><h2>Commandes de pilotage</h2></div>
+ <div class="control-grid">
+  <button class="control-action" onclick="openModal('Ajuster la caisse','controlTransaction')"><b>💰 Ajuster la caisse</b><span>Ajouter une entrée ou une sortie avec responsable et justificatif.</span></button>
+  <button class="control-action" onclick="openModal('Valider une idée','controlIdea')"><b>💡 Valider / affecter une idée</b><span>Changer le statut et désigner son responsable.</span></button>
+  <button class="control-action" onclick="openModal('Envoyer une notification','controlNotification')"><b>🔔 Envoyer une notification</b><span>Créer une alerte visible par les membres.</span></button>
+  <button class="control-action" onclick="openModal('Attribuer un responsable','controlAssign')"><b>👤 Attribuer un responsable</b><span>Responsable d'une demande, projet, idée ou opportunité.</span></button>
+  <button class="control-action" onclick="openModal('Mettre à jour un projet','controlProject')"><b>🚀 Mettre à jour un projet</b><span>Progression, statut, budget et responsable.</span></button>
+  <button class="control-action" onclick="openModal('Gérer les membres','controlMembers')"><b>👥 Gérer les profils</b><span>Corriger un statut, secteur ou informations professionnelles.</span></button>
+  <button class="control-action" onclick="openModal('Créer une décision','vote')"><b>🗳️ Nouvelle décision</b><span>Préparer une décision à soumettre au vote.</span></button>
+  <button class="control-action" onclick="exportBackup()"><b>📦 Sauvegarder</b><span>Exporter l'état complet de la plateforme en JSON.</span></button>
+ </div>
+ <div class="section-head"><h2>Points nécessitant une action</h2></div>
+ <div class="grid g2">
+  <div class="card"><h3>Idées en attente</h3>${data.ideas.filter(i=>i.status==="À étudier").map(i=>`<div class="list-item"><div class="split"><b>${esc(i.title)}</b><span class="badge gold">À étudier</span></div><div class="muted small">${esc(i.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(i.responsible||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune idée en attente.</div>`}</div>
+  <div class="card"><h3>Demandes urgentes</h3>${data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").map(r=>`<div class="list-item"><div class="split"><b>${esc(r.title)}</b>${badge(r.priority)}</div><div class="muted small">${esc(r.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(r.owner||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune demande urgente.</div>`}</div>
+ </div>`;
+}
+function openControlLogin(){
+ document.getElementById("modalTitle").textContent="Connexion — Tour de contrôle";
+ document.getElementById("modalBody").innerHTML=`<div class="control-lock">Zone réservée. Le mot de passe est requis pour accéder aux fonctions de pilotage.</div><div class="form" style="margin-top:14px"><label>Mot de passe</label><input id="controlPassword" type="password" autocomplete="off" placeholder="Mot de passe de pilotage" onkeydown="if(event.key==='Enter')checkControlPassword()"><button class="btn btn-primary" onclick="checkControlPassword()">Accéder au tour de contrôle</button></div>`;
+ document.getElementById("modal").classList.add("open");
+ setTimeout(()=>document.getElementById("controlPassword")?.focus(),100);
+}
+function checkControlPassword(){
+ if(v("controlPassword")===CONTROL_PASSWORD){sessionStorage.setItem("gm_control_auth","1");closeModal();go("control");toast("Accès au tour de contrôle autorisé");addActivity("Connexion au tour de contrôle")}
+ else toast("Mot de passe incorrect");
+}
+function logoutControl(){sessionStorage.removeItem("gm_control_auth");go("control");toast("Session de contrôle fermée")}
+function requireControl(){if(!isControlAuthenticated()){openControlLogin();return false}return true}
+
+/* ---------- RENDER ---------- */
+function render(){
+ const routes={dashboard,members:membersPage,finance,requests,ideas,projects,jobs,services,purchases,international,votes,meetings,activity,notifications,settings,control:controlPage};
+ const content=document.getElementById("content");
+ content.innerHTML=routes[page]?routes[page]():dashboard();
+ document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
+ updateNotif();
+ if(page==="members")renderMembersTable();
+}
+function updateNotif(){const n=data.notifications.filter(x=>!x.read).length;document.getElementById("topNotif").textContent=n;document.getElementById("notifCount").textContent=n?`(${n})`:""}
+document.getElementById("globalSearch").addEventListener("keydown",e=>{if(e.key==="Enter"){const q=e.target.value.trim();if(q.length>1){page="search";document.getElementById("content").innerHTML=searchPage(q);document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"))}}});
+document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
+
+/* keyboard shortcut */
+document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();document.getElementById("globalSearch").focus()}});
+
+/* initial activity */
+if(!data.activity.length){data.activity=[{id:"A-START",text:"Plateforme Génération Miracle initialisée",time:now(),actor:"Système"}];save()}
+render();
+</script>
+</body>
+</html>
