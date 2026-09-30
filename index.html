@@ -289,7 +289,19 @@ async function signOut(){await supabaseClient.auth.signOut();location.reload()}
 async function loadCloudTable(table){
  const {data:rows,error}=await supabaseClient.from(table).select("*");
  if(error) throw new Error(table+": "+error.message);
- return (rows||[]).map(r=>fromDbRow(r,table));
+ const mapped=(rows||[]).map(r=>fromDbRow(r,table));
+ if(table!=="members") return mapped;
+ // Protection d'affichage : si un ancien import a créé plusieurs copies exactes d'un profil,
+ // on n'affiche qu'une seule occurrence. Les lignes Supabase restent intactes pour permettre
+ // un nettoyage manuel depuis la Tour de contrôle.
+ const seen=new Set();
+ return mapped.filter(m=>{
+  const key=[String(m.name||"").trim().toLowerCase(),String(m.city||"").trim().toLowerCase()].join("|");
+  if(!key || key==="|") return true;
+  if(seen.has(key)) return false;
+  seen.add(key);
+  return true;
+ });
 }
 async function loadDashboardSettings(){
  const {data:row,error}=await supabaseClient.from("dashboard_settings").select("*").eq("id",1).maybeSingle();
@@ -463,8 +475,22 @@ function openMember(id){
  <div class="card"><h3>Compétences</h3><p>${(m.skills||[]).map(s=>`<span class="tag">${esc(s)}</span>`).join("")||"Non renseignées"}</p></div>
  <div class="card"><h3>Ce que je cherche</h3><p>${esc(m.looking||"Non renseigné")}</p></div>
  <div class="card"><h3>Ce que je peux apporter</h3><p>${esc(m.offer||"Non renseigné")}</p></div>
- </div><div class="card" style="margin-top:12px"><h3>Projet</h3><p>${esc(m.project||"Aucun projet renseigné")}</p></div>`;
+ </div><div class="card" style="margin-top:12px"><h3>Projet</h3><p>${esc(m.project||"Aucun projet renseigné")}</p></div>${controlUnlocked?`<div class="actions" style="margin-top:12px"><button class="btn btn-danger" onclick="deleteMember('${m.id}')">Supprimer ce membre</button></div>`:""}`;
  document.getElementById("modal").classList.add("open");
+}
+
+async function deleteMember(id){
+ if(!requireControl())return;
+ const m=data.members.find(x=>String(x.id)===String(id));if(!m)return;
+ if(!confirm(`Supprimer le membre « ${m.name} » ? Cette action est irréversible.`))return;
+ try{
+  await cloudDelete("members",id);
+  data.members=data.members.filter(x=>String(x.id)!==String(id));
+  addActivity(`Tour de contrôle : membre supprimé · ${m.name}`);
+  closeModal();
+  render();
+  toast("Membre supprimé");
+ }catch(e){showToastError(e.message)}
 }
 
 /* ---------- FINANCE ---------- */
@@ -601,11 +627,11 @@ function projects(){
  +`<div class="kanban">${["À lancer","Planifié","En cours","Terminé"].map(st=>`<div class="kanban-col"><div class="kanban-title">${st} <span class="muted">· ${data.projects.filter(p=>p.status===st).length}</span></div>${data.projects.filter(p=>p.status===st).map(p=>projectCard(p)).join("")||`<div class="muted small" style="padding:15px 5px">Aucun projet.</div>`}</div>`).join("")}</div>
  <div class="section-head"><h2>Portefeuille</h2></div><div class="grid g3">${data.projects.map(p=>`<div class="module"><span class="badge">${esc(p.status)}</span><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p><div class="progress"><i style="width:${p.progress}%"></i></div><div class="split small" style="margin-top:8px"><span>${p.progress}%</span><span>${money(p.budget)}</span></div><div class="responsible" style="margin-top:8px">👤 Responsable : <b>${esc(p.owner)}</b></div></div>`).join("")}</div>`;
 }
-function projectCard(p){return `<div class="task"><div class="row"><b>${esc(p.title)}</b><span class="badge">${p.progress}%</span></div><p>${esc(p.description)}</p><div class="progress"><i style="width:${p.progress}%"></i></div><button class="btn btn-light btn-small" style="margin-top:8px" onclick="openProject('${p.id}')">Ouvrir</button></div>`}
+function projectCard(p){return `<div class="task"><div class="row"><b>${esc(p.title)}</b><span class="badge">${p.progress}%</span></div><p>${esc(p.description)}</p><div class="progress"><i style="width:${p.progress}%"></i></div><div class="actions" style="margin-top:8px"><button class="btn btn-light btn-small" onclick="openProject('${p.id}')">Ouvrir</button>${controlUnlocked?`<button class="btn btn-danger btn-small" onclick="deleteProject('${p.id}')">Supprimer</button>`:""}</div></div>`}
 function openProject(id){
  const p=data.projects.find(x=>x.id===id);if(!p)return;
  document.getElementById("modalTitle").textContent=p.title;
- document.getElementById("modalBody").innerHTML=`<p>${esc(p.description)}</p><div class="grid g2"><div class="card"><b>Statut</b><p>${badge(p.status)}</p></div><div class="card"><b>Progression</b><p>${p.progress}%</p><div class="progress"><i style="width:${p.progress}%"></i></div></div><div class="card"><b>Responsable</b><p>${esc(p.owner)}</p></div><div class="card"><b>Budget</b><p>${money(p.budget)}</p></div></div>${adminUnlocked?`<div class="form"><label>Progression (%)</label><input id="projectProgress" type="number" min="0" max="100" value="${p.progress}"><button class="btn btn-primary" onclick="saveProject('${p.id}')">Mettre à jour</button></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Les modifications sont réservées à l'administration.</div>`}`;
+ document.getElementById("modalBody").innerHTML=`<p>${esc(p.description)}</p><div class="grid g2"><div class="card"><b>Statut</b><p>${badge(p.status)}</p></div><div class="card"><b>Progression</b><p>${p.progress}%</p><div class="progress"><i style="width:${p.progress}%"></i></div></div><div class="card"><b>Responsable</b><p>${esc(p.owner)}</p></div><div class="card"><b>Budget</b><p>${money(p.budget)}</p></div></div>${adminUnlocked?`<div class="form"><label>Progression (%)</label><input id="projectProgress" type="number" min="0" max="100" value="${p.progress}"><button class="btn btn-primary" onclick="saveProject('${p.id}')">Mettre à jour</button></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Les modifications sont réservées à l'administration.</div>`}${controlUnlocked?`<div class="actions" style="margin-top:12px"><button class="btn btn-danger" onclick="deleteProject('${p.id}')">Supprimer ce projet</button></div>`:""}`;
  document.getElementById("modal").classList.add("open");
 }
 async function saveProject(id){
@@ -615,6 +641,20 @@ async function saveProject(id){
  if(p.progress===100)p.status="Terminé";else if(p.progress>0)p.status="En cours";
  try{await cloudUpdate("projects",id,p);addActivity(`Projet ${p.title} : progression ${p.progress}%`);closeModal();render();toast("Projet mis à jour")}
  catch(e){showToastError(e.message)}
+}
+
+async function deleteProject(id){
+ if(!requireControl())return;
+ const p=data.projects.find(x=>String(x.id)===String(id));if(!p)return;
+ if(!confirm(`Supprimer le projet « ${p.title} » ? Cette action est irréversible.`))return;
+ try{
+  await cloudDelete("projects",id);
+  data.projects=data.projects.filter(x=>String(x.id)!==String(id));
+  addActivity(`Tour de contrôle : projet supprimé · ${p.title}`);
+  closeModal();
+  render();
+  toast("Projet supprimé");
+ }catch(e){showToastError(e.message)}
 }
 
 /* ---------- JOBS ---------- */
@@ -762,7 +802,7 @@ else if(type==="controlIdea")b=`<div class="form"><label>Idée</label><select id
 else if(type==="controlNotification")b=`<div class="form"><label>Titre / objet</label><input id="fTitle"><label>Message</label><textarea id="fDetail"></textarea><label>Responsable de la diffusion</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlNotification()">Envoyer à la communauté</button></div>`;
 else if(type==="controlAssign")b=`<div class="form"><label>Élément</label><select id="fTarget">${data.requests.map(x=>`<option value="request|${x.id}">Demande · ${esc(x.title)}</option>`).join("")}${data.projects.map(x=>`<option value="project|${x.id}">Projet · ${esc(x.title)}</option>`).join("")}${data.ideas.map(x=>`<option value="idea|${x.id}">Idée · ${esc(x.title)}</option>`).join("")}${data.opportunities.map(x=>`<option value="opportunity|${x.id}">Opportunité · ${esc(x.title)}</option>`).join("")}</select><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlAssign()">Attribuer</button></div>`;
 else if(type==="controlProject")b=`<div class="form"><label>Projet</label><select id="fProject">${data.projects.map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join("")}</select><label>Progression (%)</label><input id="fProgress" type="number" min="0" max="100"><label>Budget (FCFA)</label><input id="fAmount" type="number" min="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlProject()">Mettre à jour</button></div>`;
-else if(type==="controlMembers")b=`<div class="form"><label>Membre</label><select id="fMember">${data.members.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select><label>Statut</label><select id="fStatus"><option>Actif</option><option>Dormant</option></select><label>Secteur</label><input id="fSector"><label>Ce que la personne cherche</label><input id="fLooking"><label>Ce qu'elle apporte</label><input id="fOffer"><button class="btn btn-primary" onclick="controlMember()">Mettre à jour</button></div>`;
+else if(type==="controlMembers")b=`<div class="form"><label>Membre</label><select id="fMember">${data.members.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join("")}</select><label>Statut</label><select id="fStatus"><option>Actif</option><option>Dormant</option></select><label>Secteur</label><input id="fSector"><label>Ce que la personne cherche</label><input id="fLooking"><label>Ce qu'elle apporte</label><input id="fOffer"><button class="btn btn-primary" onclick="controlMember()">Mettre à jour</button><button class="btn btn-danger" onclick="deleteMember(v('fMember'))">Supprimer ce membre</button></div>`;
 else if(type==="import")b=`<div class="form"><div class="info">Collez ici des lignes CSV ou TSV. Colonnes recommandées : <b>Nom, Statut, Rôle, Ville, Secteur, Compétences, Recherche, Offre, Projet</b>.</div><textarea id="importText" style="min-height:220px" placeholder="Nom,Statut,Rôle,Ville,Secteur,Compétences,Recherche,Offre,Projet"></textarea><button class="btn btn-primary" onclick="importMembers()">Importer</button></div>`;
  else if(type==="post")b=`<div class="form"><label>Titre</label><input id="fTitle"><label>Publication</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitPost()">Publier</button></div>`;
  else b=`<div class="info">Cette fonction sera connectée à la base serveur dans la version multi-utilisateur. Le prototype actuel enregistre les données dans ce navigateur.</div>`;
@@ -860,7 +900,9 @@ function controlPage(){
  <button class="control-action" onclick="openModal('Envoyer une notification','controlNotification')"><b>🔔 Envoyer une notification</b><span>Créer une alerte.</span></button>
  <button class="control-action" onclick="openModal('Attribuer un responsable','controlAssign')"><b>👤 Attribuer un responsable</b><span>Demande, projet ou idée.</span></button>
  <button class="control-action" onclick="openModal('Mettre à jour un projet','controlProject')"><b>🚀 Mettre à jour un projet</b><span>Progression, budget et responsable.</span></button>
+ <button class="control-action" onclick="go('projects')"><b>🗑️ Supprimer un projet</b><span>Supprimer un projet depuis le portefeuille.</span></button>
  <button class="control-action" onclick="openModal('Gérer les membres','controlMembers')"><b>👥 Gérer les profils</b><span>Corriger les informations.</span></button>
+ <button class="control-action" onclick="go('members')"><b>🗑️ Supprimer un membre</b><span>Supprimer un profil inscrit depuis l'annuaire.</span></button>
  <button class="control-action" onclick="go('requests')"><b>🗑️ Supprimer une demande</b><span>Supprimer les demandes depuis la file de traitement.</span></button>
  <button class="control-action" onclick="go('ideas')"><b>🗑️ Supprimer une idée</b><span>Supprimer les idées depuis la boîte à idées.</span></button>
  <button class="control-action" onclick="go('votes')"><b>🗑️ Supprimer un vote</b><span>Supprimer les décisions de vote du navigateur de pilotage.</span></button>
