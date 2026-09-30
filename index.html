@@ -1,4 +1,3 @@
-
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -145,11 +144,10 @@ a{color:inherit}
 
 <script>
 /* ============================================================
-   GÉNÉRATION MIRACLE — V1 FRONTEND AUTONOME
-   - Aucun framework / aucune dépendance externe.
-   - Données de démonstration + localStorage.
-   - Prévu pour être branché à PostgreSQL/Supabase + Google Sheets
-     dans une version production multi-utilisateur.
+   GÉNÉRATION MIRACLE — V2 SUPABASE
+   - Frontend GitHub Pages + Supabase Auth / PostgreSQL / Realtime.
+   - localStorage conservé comme cache/fallback local.
+   - URL de production : https://gmics51564.github.io/generation-miracle/
    ============================================================ */
 
 const KEY="gm_v1_final_v2";
@@ -230,6 +228,7 @@ let syncTimer=null;
 
 const SUPABASE_URL="https://igqshvlrneacqlrtfhge.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_rJA1I9IbzYnlBlXyB8YfSg_2hb4Odlm";
+const APP_URL="https://gmics51564.github.io/generation-miracle/";
 const supabaseClient=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
  auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}
 });
@@ -273,7 +272,7 @@ async function submitAuth(){
  const btn=document.getElementById("authSubmit");if(btn)btn.disabled=true;
  try{
    let result;
-   if(authMode==="signup") result=await supabaseClient.auth.signUp({email,password,data:{full_name:name}});
+   if(authMode==="signup") result=await supabaseClient.auth.signUp({email,password,options:{data:{full_name:name},emailRedirectTo:APP_URL}});
    else result=await supabaseClient.auth.signInWithPassword({email,password});
    if(result.error) throw result.error;
    if(authMode==="signup" && !result.data.session){showAuthError("Compte créé. Vérifie ton e-mail si la confirmation est activée dans Supabase Auth.");return}
