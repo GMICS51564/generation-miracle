@@ -1,0 +1,29 @@
+{
+  "id": "./",
+  "name": "Génération Miracle — Le Pacte Miracle",
+  "short_name": "Génération Miracle",
+  "description": "Espace privé collaboratif de la Génération Miracle.",
+  "lang": "fr-FR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "theme_color": "#126b3b",
+  "background_color": "#f4f7f5",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
