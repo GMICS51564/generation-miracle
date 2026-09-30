@@ -50,7 +50,7 @@ a{color:inherit}
 .activity{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}.activity:last-child{border-bottom:0}.dot{height:9px;width:9px;background:var(--green);border-radius:50%;margin-top:6px;flex:0 0 auto}
 .list-item{padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff}.list-item+.list-item{margin-top:9px}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.field,.filters input,.filters select{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;outline:0}.field:focus{border-color:#8bb89c}
-.form{display:grid;gap:11px}.form label{font-size:12px;font-weight:750;color:#455148}.form input,.form select,.form textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;outline:0}.form textarea{min-height:100px;resize:vertical}.form input:focus,.form select:focus,.form textarea:focus{border-color:#89b99a}
+.form{display:grid;gap:11px}.form label{font-size:12px;font-weight:750;color:#455148}.password-wrap{position:relative;display:flex;align-items:center}.password-wrap input{padding-right:46px!important}.password-eye{position:absolute;right:7px;top:50%;transform:translateY(-50%);border:0;background:transparent;border-radius:8px;padding:7px;cursor:pointer;color:#56645b}.password-eye:hover{background:#eef5ef}.form input,.form select,.form textarea{width:100%;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;outline:0}.form textarea{min-height:100px;resize:vertical}.form input:focus,.form select:focus,.form textarea:focus{border-color:#89b99a}
 .split{display:flex;justify-content:space-between;gap:14px;align-items:center}
 .timeline{border-left:2px solid #dfe8e1;padding-left:18px}.timeline-item{position:relative;margin-bottom:18px}.timeline-item:before{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:var(--gold);left:-24px;top:4px;border:3px solid var(--bg)}
 .module{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px;transition:.15s}.module:hover{box-shadow:var(--shadow);transform:translateY(-2px)}.module .emoji{font-size:27px;margin-bottom:7px}.module h3{margin:0 0 7px}.module p{color:var(--muted);font-size:12px;line-height:1.5;margin:0 0 13px}
@@ -87,7 +87,7 @@ a{color:inherit}
     <div id="authError" class="auth-error"></div>
     <div class="form">
       <label>Adresse e-mail</label><input id="authEmail" type="email" autocomplete="email" placeholder="vous@exemple.com">
-      <label>Mot de passe</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimum 6 caractères">
+      <label>Mot de passe</label><div class="password-wrap"><input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimum 6 caractères"><button type="button" class="password-eye" title="Afficher le mot de passe" aria-label="Afficher le mot de passe" onclick="togglePasswordVisibility('authPassword',this)">👁</button></div>
       <label id="authNameLabel" style="display:none">Nom complet</label><input id="authName" style="display:none" autocomplete="name" placeholder="Nom et prénom">
       <button id="authSubmit" class="btn btn-primary" onclick="submitAuth()">Se connecter</button>
     </div>
@@ -227,6 +227,8 @@ let cloudReady=false;
 let syncTimer=null;
 let controlUnlocked=false;
 let adminUnlocked=false;
+let controlLockTimer=null;
+let adminLockTimer=null;
 let pendingAdminAction=null;
 let cloudSnapshots={};
 
@@ -308,11 +310,37 @@ async function loadDashboardSettings(){
  if(error) throw new Error("dashboard_settings: "+error.message);
  data.dashboardSettings=row||{id:1,member_count_display:null,balance_display:null};
 }
+async function loadVotesCloud(){
+ const {data:rows,error}=await supabaseClient.from("votes").select("*").order("created_at",{ascending:false});
+ if(error) throw new Error("votes: "+error.message);
+ const {data:responses,error:re}=await supabaseClient.from("vote_responses").select("vote_id,user_id,choice");
+ if(re) throw new Error("vote_responses: "+re.message);
+ return (rows||[]).map(v=>{const rr=(responses||[]).filter(r=>String(r.vote_id)===String(v.id));return {...v,for:rr.filter(r=>r.choice==="for").length,against:rr.filter(r=>r.choice==="against").length,abstain:rr.filter(r=>r.choice==="abstain").length,myChoice:currentUser?rr.find(r=>r.user_id===currentUser.id)?.choice:null};});
+}
+async function loadActivityCloud(){
+ const {data:rows,error}=await supabaseClient.from("activity_log").select("*").order("created_at",{ascending:false}).limit(100);
+ if(error) throw new Error("activity_log: "+error.message);
+ return (rows||[]).map(a=>({id:a.id,text:a.text,time:new Date(a.created_at).toLocaleString("fr-FR"),actor:a.actor_name||"Système"}));
+}
+async function loadAuditCloud(){
+ const {data:rows,error}=await supabaseClient.from("audit_log").select("id,table_name,operation,row_id,actor_user_id,changed_at").order("changed_at",{ascending:false}).limit(100);
+ if(error) throw new Error("audit_log: "+error.message);
+ return rows||[];
+}
+async function loadNotificationsCloud(){
+ const {data:rows,error}=await supabaseClient.from("notifications").select("*").order("created_at",{ascending:false}).limit(50);
+ if(error) throw new Error("notifications: "+error.message);
+ return (rows||[]).map(n=>{const ids=Array.isArray(n.read_by)?n.read_by:[];return {id:n.id,text:n.title+" — "+n.message,title:n.title,message:n.message,time:new Date(n.created_at).toLocaleString("fr-FR"),read:currentUser?ids.includes(currentUser.id):false,responsible:n.responsible,read_by:ids};});
+}
 async function loadAllCloudData(){
  const tables=["members","transactions","projects","requests","ideas","meetings"];
  for(const table of tables) data[table]=await loadCloudTable(table);
+ data.votes=await loadVotesCloud();
+ data.activity=await loadActivityCloud();
+ data.audit=await loadAuditCloud();
+ data.notifications=await loadNotificationsCloud();
  await loadDashboardSettings();
- data.votes=data.votes||[];data.opportunities=data.opportunities||[];data.services=data.services||[];data.notifications=data.notifications||[];data.activity=data.activity||[];
+ data.opportunities=data.opportunities||[];data.services=data.services||[];
 }
 async function cloudInsert(table,row){
  const payload=normalizeForInsert(row,table);
@@ -341,6 +369,10 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 async function refreshFromRealtime(){
  try{
   for(const table of ["members","transactions","projects","requests","ideas","meetings"]) data[table]=await loadCloudTable(table);
+  data.votes=await loadVotesCloud();
+  data.activity=await loadActivityCloud();
+  data.audit=await loadAuditCloud();
+  data.notifications=await loadNotificationsCloud();
   await loadDashboardSettings(); render();
  }catch(e){console.error("Realtime refresh",e)}
 }
@@ -353,6 +385,11 @@ function subscribeRealtime(){
  .on("postgres_changes",{event:"*",schema:"public",table:"ideas"},refreshFromRealtime)
  .on("postgres_changes",{event:"*",schema:"public",table:"meetings"},refreshFromRealtime)
  .on("postgres_changes",{event:"*",schema:"public",table:"dashboard_settings"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"votes"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"vote_responses"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"activity_log"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"audit_log"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"notifications"},refreshFromRealtime)
  .subscribe((status)=>console.log("Realtime:",status));
 }
 async function startApplication(){
@@ -376,13 +413,15 @@ function initials(n){return String(n).split(/\s+/).filter(Boolean).map(x=>x[0]).
 function now(){return new Date().toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"})}
 function uid(prefix){return prefix+"-"+Date.now().toString(36).toUpperCase()}
 function activeMembers(){return data.members.filter(m=>m.status==="Actif").length}
-function addActivity(text){
- data.activity.unshift({id:uid("A"),text,time:now(),actor:"Elisée Melchi Mabondzo"});
- data.activity=data.activity.slice(0,100); save();
+async function addActivity(text){
+ const actor=currentUser?.user_metadata?.full_name||currentUser?.email?.split("@")[0]||"Membre";
+ try{const row=await supabaseClient.from("activity_log").insert({text,actor_user_id:currentUser?.id||null,actor_name:actor}).select("*").single();if(row.error)throw row.error;data.activity.unshift({id:row.data.id,text,time:new Date(row.data.created_at).toLocaleString("fr-FR"),actor});data.activity=data.activity.slice(0,100);}
+ catch(e){console.error("activity_log",e);data.activity.unshift({id:uid("A"),text,time:now(),actor});data.activity=data.activity.slice(0,100);save();}
 }
-function notify(text){
- data.notifications.unshift({id:uid("N"),text,time:now(),read:false});
- data.notifications=data.notifications.slice(0,50); save();
+async function notify(text,title=null){
+ const parts=String(text).split(" — "); const ntitle=title||parts[0]||"Notification"; const message=title?String(text):parts.slice(1).join(" — ")||String(text);
+ try{const row=await supabaseClient.from("notifications").insert({title:ntitle,message,created_by:currentUser?.id||null,read_by:[]}).select("*").single();if(row.error)throw row.error;data.notifications.unshift({id:row.data.id,text:ntitle+" — "+message,title:ntitle,message,time:new Date(row.data.created_at).toLocaleString("fr-FR"),read:false,read_by:[]});data.notifications=data.notifications.slice(0,50);}
+ catch(e){console.error("notifications",e);data.notifications.unshift({id:uid("N"),text,title:ntitle,message,time:now(),read:false});data.notifications=data.notifications.slice(0,50);save();}
 }
 function toast(t){const x=document.getElementById("toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),3200)}
 function go(p){page=p;render();document.getElementById("sidebar").classList.remove("open");window.scrollTo({top:0,behavior:"smooth"})}
@@ -420,6 +459,18 @@ function dashboard(){
    <div class="section-head"><h2>Caisse commune</h2><button class="btn btn-light btn-small" onclick="go('finance')">Voir le livre</button></div>
    <div class="card"><div class="muted small">Solde affiché sur le tableau de bord</div><div class="money">${money(displayedBalance)}</div><div class="split small"><span>Objectif Phase 1</span><b>80 000 FCFA</b></div><div class="progress gold" style="margin:9px 0"><i style="width:${Math.min(100,Math.max(0,displayedBalance)/80000*100)}%"></i></div><div class="muted small">Le livre de caisse reste consultable séparément.</div></div>
   </div>
+ </div>
+ <div class="section-head" style="margin-top:16px"><h2>Tableau de bord décisionnel</h2><span class="muted small">Indicateurs opérationnels · données Supabase</span></div>
+ <div class="grid g4">
+ ${stat("Membres actifs",activeMembers(),`${data.members.length} profils chargés`)}
+ ${stat("Demandes urgentes",data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").length,"à traiter") }
+ ${stat("Votes ouverts",data.votes.filter(v=>v.status==="Ouvert"||v.status==="Brouillon").length,"décisions en cours") }
+ ${stat("Notifications",data.notifications.filter(n=>!n.read).length,"non lues pour ce compte") }
+ </div>
+ <div class="grid g3" style="margin-top:12px">
+  <div class="card"><h3>Avancement des projets</h3><div class="money" style="font-size:28px">${data.projects.length?Math.round(data.projects.reduce((s,p)=>s+Number(p.progress||0),0)/data.projects.length):0}%</div><div class="progress"><i style="width:${data.projects.length?Math.round(data.projects.reduce((s,p)=>s+Number(p.progress||0),0)/data.projects.length):0}%"></i></div></div>
+  <div class="card"><h3>Idées à étudier</h3><div class="money" style="font-size:28px">${data.ideas.filter(i=>i.status==="À étudier").length}</div><div class="muted small">sur ${data.ideas.length} idée(s)</div></div>
+  <div class="card"><h3>Journal</h3><div class="money" style="font-size:28px">${data.activity.length}</div><div class="muted small">événement(s) récent(s) synchronisé(s)</div></div>
  </div>
  <div class="section-head"><h2>Les 7 programmes</h2><span class="muted small">Feuille de route du Pacte Miracle</span></div>
  <div class="grid g3">${programCards()}</div>
@@ -703,29 +754,23 @@ function international(){
 
 /* ---------- VOTES ---------- */
 function votes(){
- return pageHead("Votes & décisions","Consigner les décisions, vérifier le quorum, voter et conserver les résultats.",
+ return pageHead("Votes & décisions","Décisions partagées, vote lié au compte connecté et résultats synchronisés en temps réel.",
  `<button class="btn btn-primary" onclick="openModal('Nouvelle décision','vote')">+ Soumettre au vote</button>`)
  +`<div class="grid g3"><div class="module"><h3>Décisions courantes</h3><p>Majorité simple.</p><span class="badge">Gouvernance</span></div><div class="module"><h3>Décisions importantes</h3><p>Majorité des 2/3 selon la charte.</p><span class="badge gold">2/3</span></div><div class="module"><h3>Quorum</h3><p>Au moins la moitié des membres actifs présents ou représentés.</p><span class="badge blue">Quorum</span></div></div>
- <div class="section-head"><h2>Décisions</h2></div><div class="grid g2">${data.votes.map(v=>`<div class="card"><div class="split"><b>${esc(v.id)}</b>${badge(v.status)}</div><h3 style="margin-top:9px">${esc(v.title)}</h3><p class="small">${esc(v.detail)}</p><div class="grid g3 small"><div><b>${v.for}</b><br><span class="muted">Pour</span></div><div><b>${v.against}</b><br><span class="muted">Contre</span></div><div><b>${v.abstain}</b><br><span class="muted">Abst.</span></div></div><div class="split small" style="margin-top:13px"><span class="muted">Échéance : ${esc(v.deadline||"—")}</span><span class="responsible">👤 ${esc(v.responsible||"Secrétaire")}</span><button class="btn btn-light btn-small" onclick="vote('${v.id}')">Voter</button>${controlUnlocked?`<button class="btn btn-danger btn-small" onclick="deleteVote('${v.id}')">Supprimer</button>`:""}</div></div>`).join("")||empty("☑","Aucune décision.")}</div>`;
+ <div class="section-head"><h2>Décisions</h2><span class="muted small">${data.votes.length} décision(s) synchronisée(s)</span></div><div class="grid g2">${data.votes.map(v=>`<div class="card"><div class="split"><b>${esc(v.id)}</b>${badge(v.status)}</div><h3 style="margin-top:9px">${esc(v.title)}</h3><p class="small">${esc(v.detail||"")}</p><div class="grid g3 small"><div><b>${v.for||0}</b><br><span class="muted">Pour</span></div><div><b>${v.against||0}</b><br><span class="muted">Contre</span></div><div><b>${v.abstain||0}</b><br><span class="muted">Abst.</span></div></div><div class="split small" style="margin-top:13px"><span class="muted">Échéance : ${esc(v.deadline||"—")}</span><span class="responsible">👤 ${esc(v.responsible||"Secrétaire")}</span></div><div class="actions" style="margin-top:10px"><button class="btn btn-light btn-small" onclick="vote('${v.id}')">${v.myChoice?"Modifier mon vote":"Voter"}</button>${controlUnlocked?`<button class="btn btn-danger btn-small" onclick="deleteVote('${v.id}')">Supprimer</button>`:""}</div>${v.myChoice?`<div class="info" style="margin-top:10px">Votre vote actuel : <b>${v.myChoice==="for"?"Pour":v.myChoice==="against"?"Contre":"Abstention"}</b></div>`:""}</div>`).join("")||empty("☑","Aucune décision.")}</div>`;
 }
 function vote(id){
- const v=data.votes.find(x=>x.id===id);if(!v)return;
- if(v.status==="Brouillon")v.status="Ouvert";
+ const v=data.votes.find(x=>String(x.id)===String(id));if(!v)return;
  document.getElementById("modalTitle").textContent="Voter — "+v.title;
- document.getElementById("modalBody").innerHTML=`<p>${esc(v.detail)}</p><div class="grid g3"><button class="btn btn-primary" onclick="castVote('${id}','for')">✓ Pour</button><button class="btn btn-danger" onclick="castVote('${id}','against')">✕ Contre</button><button class="btn btn-light" onclick="castVote('${id}','abstain')">— Abstention</button></div><p class="muted small" style="margin-top:12px">Prototype : le vote est local à ce navigateur. La production devra empêcher le double vote côté serveur.</p>`;
+ document.getElementById("modalBody").innerHTML=`<p>${esc(v.detail||"")}</p><div class="grid g3"><button class="btn btn-primary" onclick="castVote('${id}','for')">✓ Pour</button><button class="btn btn-danger" onclick="castVote('${id}','against')">✕ Contre</button><button class="btn btn-light" onclick="castVote('${id}','abstain')">— Abstention</button></div><p class="muted small" style="margin-top:12px">Votre vote est associé à votre compte Supabase. Un seul vote est conservé par membre et par décision.</p>`;
  document.getElementById("modal").classList.add("open");
 }
-function castVote(id,type){const v=data.votes.find(x=>x.id===id);if(!v)return;v[type]++;v.status="Ouvert";addActivity(`Vote enregistré sur ${v.id}`);closeModal();render();toast("Vote enregistré dans le prototype")}
-function deleteVote(id){
- if(!requireControl())return;
- const v=data.votes.find(x=>String(x.id)===String(id));if(!v)return;
+async function castVote(id,type){
+ try{const {data:row,error}=await supabaseClient.rpc("gm_cast_vote",{p_vote_id:id,p_choice:type});if(error)throw error;data.votes=await loadVotesCloud();await addActivity(`Vote enregistré sur ${row.id}`);closeModal();render();toast("Vote enregistré");}catch(e){showToastError(e.message)}}
+async function deleteVote(id){
+ if(!requireControl())return; const v=data.votes.find(x=>String(x.id)===String(id));if(!v)return;
  if(!confirm(`Supprimer le vote « ${v.title} » ?`))return;
- data.votes=data.votes.filter(x=>String(x.id)!==String(id));
- addActivity(`Tour de contrôle : vote supprimé · ${v.title}`);
- closeModal();
- save();
- render();
- toast("Vote supprimé");
+ try{await cloudDelete("votes",id);data.votes=data.votes.filter(x=>String(x.id)!==String(id));await addActivity(`Tour de contrôle : vote supprimé · ${v.title}`);closeModal();render();toast("Vote supprimé")}catch(e){showToastError(e.message)}
 }
 
 /* ---------- MEETINGS ---------- */
@@ -738,17 +783,19 @@ function meetings(){
 
 /* ---------- ACTIVITY / NOTIFICATIONS ---------- */
 function activity(){
- return pageHead("Journal d'activité","Traçabilité locale des actions effectuées dans la plateforme.",
- `<button class="btn btn-light" onclick="clearActivity()">Effacer le journal local</button>`)
- +`<div class="card">${data.activity.map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.text)}</b><div class="muted small">${esc(a.time)} · ${esc(a.actor)}</div></div></div>`).join("")||empty("⌁","Aucune activité.")}</div>`;
+ const auditBlock=controlUnlocked?`<div class="card" style="margin-top:16px"><div class="section-head"><h2>Audit de sécurité</h2><span class="badge gold">🔐 Pilotage</span></div>${(data.audit||[]).slice(0,25).map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.operation)} · ${esc(a.table_name)}</b><div class="muted small">Ligne ${esc(a.row_id||"—")} · ${new Date(a.changed_at).toLocaleString("fr-FR")}</div></div></div>`).join("")||empty("🛡","Aucun événement d'audit.")}</div>`:"";
+ return pageHead("Journal d'activité","Journal cloud partagé + traçabilité des opérations effectuées dans Supabase.",
+ `<span class="badge blue">☁ Synchronisé</span>`)+`<div class="card"><div class="section-head"><h2>Activité récente</h2><span class="muted small">${data.activity.length} événement(s)</span></div>${data.activity.map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.text)}</b><div class="muted small">${esc(a.time)} · ${esc(a.actor)}</div></div></div>`).join("")||empty("⌁","Aucune activité.")}</div>${auditBlock}`;
 }
 function notifications(){
- return pageHead("Notifications","Alertes, demandes, projets et décisions qui nécessitent votre attention.",
- `<button class="btn btn-light" onclick="readNotifications()">Tout marquer comme lu</button>`)
- +`<div class="card">${data.notifications.map(n=>`<div class="activity"><div class="dot"></div><div><b>${esc(n.text)}</b><div class="muted small">${esc(n.time)} ${n.read?"· Lu":"· Nouveau"}</div></div></div>`).join("")||empty("🔔","Aucune notification.")}</div>`;
+ return pageHead("Notifications","Alertes partagées et synchronisées en temps réel.",
+ `<button class="btn btn-light" onclick="readNotifications()">Tout marquer comme lu</button>`)+`<div class="card">${data.notifications.map(n=>`<div class="activity"><div class="dot"></div><div><b>${esc(n.title||n.text)}</b><div>${esc(n.message||"")}</div><div class="muted small">${esc(n.time)} ${n.read?"· Lu":"· Nouveau"}</div></div></div>`).join("")||empty("🔔","Aucune notification.")}</div>`;
 }
-function readNotifications(){data.notifications.forEach(n=>n.read=true);save();render();toast("Notifications marquées comme lues")}
-function clearActivity(){if(confirm("Effacer le journal local ?")){data.activity=[];save();render()}}
+async function readNotifications(){
+ if(!currentUser)return;
+ try{for(const n of data.notifications){if(!n.read)await supabaseClient.rpc("gm_mark_notification_read",{p_notification_id:n.id});}data.notifications=await loadNotificationsCloud();render();toast("Notifications marquées comme lues");}catch(e){showToastError(e.message)}
+}
+function clearActivity(){toast("Le journal cloud est conservé pour la traçabilité.")}
 
 /* ---------- SETTINGS ---------- */
 function settings(){
@@ -761,7 +808,7 @@ function settings(){
  <div class="card"><h3>Tour de contrôle</h3><p class="small">Session de pilotage active. Les modifications sensibles restent soumises aux politiques Supabase.</p><button class="btn btn-light btn-small" onclick="go('control')">Ouvrir la tour de contrôle</button></div>
  <div class="card"><h3>Connexion des données</h3><p class="small">Les modules centraux sont synchronisés avec Supabase et Realtime. Les membres disposent d'un accès en lecture pour les données partagées.</p><div class="info">Les modifications sensibles sont réservées au pilotage ou à l'administration.</div></div>
  <div class="card"><h3>Rôles</h3><p class="small">Président · Vice-président · Secrétaire · Trésorier · Adjoint trésorier · Responsable organisation · Adjoints organisation · Chargé communication · Adjoint communication.</p></div>
- <div class="card"><h3>État des données</h3><p class="small">Membres : ${data.members.length} / ${TOTAL_MEMBERS}<br>Idées : ${data.ideas.length}<br>Demandes : ${data.requests.length}<br>Transactions : ${data.transactions.length}<br>Projets : ${data.projects.length}<br>Réunions : ${data.meetings.length}</p></div></div>`;
+ <div class="card"><h3>État des données</h3><p class="small">Membres : ${data.members.length} / ${TOTAL_MEMBERS}<br>Idées : ${data.ideas.length}<br>Demandes : ${data.requests.length}<br>Transactions : ${data.transactions.length}<br>Projets : ${data.projects.length}<br>Réunions : ${data.meetings.length}<br>Votes : ${data.votes.length}<br>Notifications : ${data.notifications.length}<br>Journal : ${data.activity.length}<br>Audit : ${(data.audit||[]).length}</p></div></div>`;
 }
 function saveSettings(){if(!controlUnlocked)return;toast("Les paramètres sont protégés");render()}
 
@@ -812,7 +859,7 @@ function closeModal(){document.getElementById("modal").classList.remove("open");
 document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 async function controlTransaction(){if(!requireControl())return;const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();const row={id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner"),note:v("fNote")};try{const saved=await cloudInsert("transactions",row);data.transactions.push(saved);addActivity("Tour de contrôle : caisse ajustée · "+label);closeModal();render();toast("Caisse ajustée")}catch(e){showToastError(e.message)}}
 async function controlIdea(){if(!requireControl())return;const i=data.ideas.find(x=>x.id===v("fIdea"));if(!i)return;i.status=v("fStatus");i.responsible=v("fOwner");try{await cloudUpdate("ideas",i.id,i);addActivity("Tour de contrôle : idée mise à jour · "+i.title);closeModal();render();toast("Idée mise à jour")}catch(e){showToastError(e.message)}}
-function controlNotification(){if(!requireControl())return;const title=v("fTitle"),detail=v("fDetail");if(!title||!detail)return required();data.notifications.unshift({id:uid("N"),text:title+" — "+detail,time:now(),read:false,responsible:v("fOwner")});addActivity("Notification envoyée : "+title);closeModal();render();toast("Notification enregistrée")}
+async function controlNotification(){if(!requireControl())return;const title=v("fTitle"),detail=v("fDetail");if(!title||!detail)return required();try{const row=await supabaseClient.from("notifications").insert({title,message:detail,responsible:v("fOwner"),created_by:currentUser?.id||null,read_by:[]}).select("*").single();if(row.error)throw row.error;await addActivity("Notification envoyée : "+title);closeModal();await refreshFromRealtime();toast("Notification envoyée à la communauté")}catch(e){showToastError(e.message)}}
 async function controlAssign(){if(!requireControl())return;const [type,id]=v("fTarget").split("|"),owner=v("fOwner");let obj=null,table=null;if(type==="request")obj=data.requests.find(x=>x.id===id),table="requests";if(type==="project")obj=data.projects.find(x=>x.id===id),table="projects";if(type==="idea")obj=data.ideas.find(x=>x.id===id),table="ideas";if(!obj)return;if(type==="request")obj.owner=owner;if(type==="project")obj.owner=owner;if(type==="idea")obj.responsible=owner;try{await cloudUpdate(table,id,obj);addActivity("Tour de contrôle : responsable attribué à "+owner);closeModal();render();toast("Responsable attribué")}catch(e){showToastError(e.message)}}
 async function controlProject(){if(!requireControl())return;const p=data.projects.find(x=>x.id===v("fProject"));if(!p)return;p.progress=Math.max(0,Math.min(100,Number(v("fProgress"))||0));p.budget=Number(v("fAmount"))||0;p.owner=v("fOwner");p.status=p.progress===100?"Terminé":p.progress>0?"En cours":"Planifié";try{await cloudUpdate("projects",p.id,p);addActivity("Tour de contrôle : projet mis à jour · "+p.title);closeModal();render();toast("Projet mis à jour")}catch(e){showToastError(e.message)}}
 async function controlMember(){if(!requireControl())return;const m=data.members.find(x=>String(x.id)===v("fMember"));if(!m)return;m.status=v("fStatus");m.sector=v("fSector");m.looking=v("fLooking");m.offer=v("fOffer");try{await cloudUpdate("members",m.id,m);addActivity("Tour de contrôle : profil membre mis à jour · "+m.name);closeModal();render();toast("Profil mis à jour")}catch(e){showToastError(e.message)}}
@@ -825,7 +872,7 @@ function submitOpportunity(){const title=v("fTitle");if(!title)return required()
 function submitService(){const title=v("fTitle");if(!title)return required();data.services.unshift({id:uid("S"),title,category:v("fCat"),price:Number(v("fAmount"))||0,detail:v("fDetail"),member:"Membre",responsible:"Chargé de communication"});addActivity("Service déclaré : "+title);closeModal();render();toast("Service ajouté")}
 function submitPurchase(){const title=v("fTitle");if(!title)return required();addActivity("Besoin centrale d'achat : "+title+" × "+v("fQty"));notify("Nouveau besoin dans la centrale d'achat : "+title);closeModal();render();toast("Besoin enregistré")}
 function submitInternational(){const title=v("fTitle");if(!title)return required();addActivity("Mission internationale signalée : "+title);notify("Nouvelle mission internationale : "+title);closeModal();render();toast("Mission signalée")}
-function submitVote(){const title=v("fTitle");if(!title)return required();data.votes.unshift({id:uid("V"),title,detail:v("fDetail"),status:"Brouillon",for:0,against:0,abstain:0,deadline:v("fDeadline")});addActivity("Nouveau vote préparé : "+title);closeModal();render();toast("Vote créé")}
+async function submitVote(){const title=v("fTitle");if(!title)return required();try{const row=await cloudInsert("votes",{title,detail:v("fDetail"),status:"Brouillon",deadline:v("fDeadline")||null,responsible:"Secrétaire",created_by:currentUser?.id||null});data.votes.unshift({...row,for:0,against:0,abstain:0,myChoice:null});await addActivity("Nouveau vote préparé : "+title);closeModal();render();toast("Vote créé et synchronisé")}catch(e){showToastError(e.message)}}
 async function submitMeeting(){if(!requireAdmin())return;const title=v("fTitle")||"Réunion";if(!v("fDate"))return required();const row={id:uid("M"),title,date:v("fDate"),time:v("fTime"),agenda:v("fDetail"),status:"Programmée",responsible:"Secrétaire"};try{const saved=await cloudInsert("meetings",row);data.meetings.push(saved);addActivity("Réunion programmée : "+title);notify("Réunion programmée : "+title);closeModal();render();toast("Réunion programmée")}catch(e){showToastError(e.message)}}
 async function submitMember(){const name=v("fName");if(!name)return required();if(data.members.length>=TOTAL_MEMBERS){toast("Les 81 places sont déjà renseignées");return}const row={id:uid("M"),name,status:v("fStatus"),role:"Membre",city:v("fCity"),sector:v("fSector"),skills:v("fSkills").split(",").map(x=>x.trim()).filter(Boolean),looking:v("fLooking"),offer:v("fOffer"),project:v("fProject")};try{const saved=await cloudInsert("members",row);data.members.push(saved);addActivity("Nouveau membre ajouté : "+name);closeModal();render();toast("Membre ajouté")}catch(e){showToastError(e.message)}}
 async function importMembers(){if(!requireControl())return;const text=v("importText");if(!text)return required();const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(lines.length<2){toast("Ajoutez une ligne d'en-têtes et au moins une ligne");return}const delim=lines[0].includes("\t")?"\t":",";const head=lines[0].split(delim).map(x=>x.trim().toLowerCase());let count=0;try{for(const line of lines.slice(1)){const c=line.split(delim).map(x=>x.trim().replace(/^"|"$/g,""));if(!c[0])continue;const get=(...names)=>{const i=head.findIndex(h=>names.includes(h));return i>=0?c[i]||"":""};const name=get("nom","nom complet","name");if(!name)continue;const existing=data.members.find(m=>m.name.toLowerCase()===name.toLowerCase());const obj={id:existing?.id||uid("M"),name,status:get("statut","status")||"Actif",role:get("rôle","role")||"Membre",city:get("ville","city"),sector:get("secteur","sector"),skills:get("compétences","competences","skills").split(/[;,]/).map(x=>x.trim()).filter(Boolean),looking:get("recherche","ce que je cherche"),offer:get("offre","ce que je peux apporter"),project:get("projet")};if(existing){const saved=await cloudUpdate("members",existing.id,obj);Object.assign(existing,saved)}else{const saved=await cloudInsert("members",obj);data.members.push(saved)}count++}addActivity(count+" profil(s) importé(s) ou mis à jour");save();closeModal();render();toast(count+" profil(s) importé(s)")}catch(e){showToastError(e.message)}}
@@ -855,21 +902,28 @@ function exportBackup(){const a=document.createElement("a");a.href=URL.createObj
 async function resetDemo(){if(confirm("Recharger les données depuis Supabase ?")){try{await loadAllCloudData();render();toast("Données Supabase rechargées")}catch(e){showToastError(e.message)}}}
 
 
+function togglePasswordVisibility(inputId,button){
+ const input=document.getElementById(inputId);if(!input)return;
+ const visible=input.type==="text";input.type=visible?"password":"text";
+ if(button){button.textContent=visible?"👁":"🙈";button.title=visible?"Afficher le mot de passe":"Masquer le mot de passe";button.setAttribute("aria-label",button.title);}
+}
+
 /* ---------- ACCÈS PROTÉGÉS ---------- */
 async function unlockAccess(level,password){
  try{
   const {data:ok,error}=await supabaseClient.rpc("gm_unlock",{p_level:level,p_password:password});
   if(error)throw error;if(!ok)throw new Error("Code incorrect.");
-  if(level==="control")controlUnlocked=true;if(level==="admin")adminUnlocked=true;
+  if(level==="control"){controlUnlocked=true;clearTimeout(controlLockTimer);controlLockTimer=setTimeout(()=>{lockAccess("control");if(page==="control"||page==="settings")render();toast("Session de pilotage expirée");},30*60*1000);}
+  if(level==="admin"){adminUnlocked=true;clearTimeout(adminLockTimer);adminLockTimer=setTimeout(()=>{lockAccess("admin");toast("Session administrateur expirée");},30*60*1000);}
   toast(level==="admin"?"Accès administrateur activé":"Accès de pilotage activé");return true;
  }catch(e){toast("Accès refusé : "+(e.message||"code incorrect"));return false}
 }
-async function lockAccess(level){try{await supabaseClient.rpc("gm_lock",{p_level:level})}catch(e){}if(level==="control")controlUnlocked=false;if(level==="admin")adminUnlocked=false}
+async function lockAccess(level){try{await supabaseClient.rpc("gm_lock",{p_level:level})}catch(e){}if(level==="control"){controlUnlocked=false;clearTimeout(controlLockTimer)}if(level==="admin"){adminUnlocked=false;clearTimeout(adminLockTimer)}}
 function isControlAuthenticated(){return controlUnlocked}
 function isAdminAuthenticated(){return adminUnlocked}
 function openControlLogin(afterPage="control"){
  document.getElementById("modalTitle").textContent="Accès protégé";
- document.getElementById("modalBody").innerHTML=`<div class="form"><div class="control-lock"><b>🔒 Tour de contrôle</b><br>Le code est vérifié côté Supabase.</div><label>Code de pilotage</label><input id="controlPassword" type="password" autocomplete="off" placeholder="Code d'accès"><button class="btn btn-primary" onclick="checkControlPassword('${afterPage}')">Déverrouiller</button></div>`;
+ document.getElementById("modalBody").innerHTML=`<div class="form"><div class="control-lock"><b>🔒 Tour de contrôle</b><br>Le code est vérifié côté Supabase.</div><label>Code de pilotage</label><div class="password-wrap"><input id="controlPassword" type="password" autocomplete="off" placeholder="Code d'accès"><button type="button" class="password-eye" title="Afficher le code" aria-label="Afficher le code" onclick="togglePasswordVisibility('controlPassword',this)">👁</button></div><button class="btn btn-primary" onclick="checkControlPassword('${afterPage}')">Déverrouiller</button></div>`;
  document.getElementById("modal").classList.add("open");
 }
 async function checkControlPassword(afterPage="control"){const ok=await unlockAccess("control",v("controlPassword"));if(!ok)return;closeModal();go(afterPage)}
@@ -877,7 +931,7 @@ function openAdminAction(type){
  if(adminUnlocked){openModal(type==="project"?"Nouveau projet":"Programmer une réunion",type);return}
  pendingAdminAction=type;
  document.getElementById("modalTitle").textContent="Accès administrateur";
- document.getElementById("modalBody").innerHTML=`<div class="form"><div class="control-lock"><b>🔐 Administration</b><br>La création de projets et la programmation de réunions nécessitent le code administrateur.</div><label>Code administrateur</label><input id="adminPassword" type="password" autocomplete="off" placeholder="Code d'administration"><button class="btn btn-primary" onclick="checkAdminPassword()">Déverrouiller</button></div>`;
+ document.getElementById("modalBody").innerHTML=`<div class="form"><div class="control-lock"><b>🔐 Administration</b><br>La création de projets et la programmation de réunions nécessitent le code administrateur.</div><label>Code administrateur</label><div class="password-wrap"><input id="adminPassword" type="password" autocomplete="off" placeholder="Code d'administration"><button type="button" class="password-eye" title="Afficher le code" aria-label="Afficher le code" onclick="togglePasswordVisibility('adminPassword',this)">👁</button></div><button class="btn btn-primary" onclick="checkAdminPassword()">Déverrouiller</button></div>`;
  document.getElementById("modal").classList.add("open");
 }
 async function checkAdminPassword(){const ok=await unlockAccess("admin",v("adminPassword"));if(!ok)return;const action=pendingAdminAction;pendingAdminAction=null;closeModal();if(action==="project")openModal("Nouveau projet","project");if(action==="meeting")openModal("Programmer une réunion","meeting")}
