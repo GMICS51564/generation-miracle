@@ -225,6 +225,10 @@ let currentUser=null;
 let authMode="login";
 let cloudReady=false;
 let syncTimer=null;
+let controlUnlocked=false;
+let adminUnlocked=false;
+let pendingAdminAction=null;
+let cloudSnapshots={};
 
 const SUPABASE_URL="https://igqshvlrneacqlrtfhge.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_rJA1I9IbzYnlBlXyB8YfSg_2hb4Odlm";
@@ -287,46 +291,46 @@ async function loadCloudTable(table){
  if(error) throw new Error(table+": "+error.message);
  return (rows||[]).map(r=>fromDbRow(r,table));
 }
-async function seedIfEmpty(table,rows){
- const {count,error}=await supabaseClient.from(table).select("id",{count:"exact",head:true});
- if(error) throw error;
- if((count||0)===0 && rows.length){
-   const payload=rows.map(r=>normalizeForInsert(r,table));
-   const {data:inserted,error:insertError}=await supabaseClient.from(table).insert(payload).select("*");
-   if(insertError) throw insertError;
-   return (inserted||[]).map(r=>fromDbRow(r,table));
- }
- return null;
+async function loadDashboardSettings(){
+ const {data:row,error}=await supabaseClient.from("dashboard_settings").select("*").eq("id",1).maybeSingle();
+ if(error) throw new Error("dashboard_settings: "+error.message);
+ data.dashboardSettings=row||{id:1,member_count_display:null,balance_display:null};
 }
 async function loadAllCloudData(){
- const tables=["members","transactions","projects","requests","ideas"];
- const seeds={members:defaultData.members,transactions:defaultData.transactions,projects:defaultData.projects,requests:defaultData.requests,ideas:defaultData.ideas};
- for(const table of tables){
-   let seeded=await seedIfEmpty(table,seeds[table]);
-   data[table]=seeded||await loadCloudTable(table);
- }
- data.votes=data.votes||[];data.meetings=data.meetings||[];data.opportunities=data.opportunities||[];data.services=data.services||[];data.notifications=data.notifications||[];data.activity=data.activity||[];
+ const tables=["members","transactions","projects","requests","ideas","meetings"];
+ for(const table of tables) data[table]=await loadCloudTable(table);
+ await loadDashboardSettings();
+ data.votes=data.votes||[];data.opportunities=data.opportunities||[];data.services=data.services||[];data.notifications=data.notifications||[];data.activity=data.activity||[];
 }
-async function syncTable(table){
- if(!cloudReady)return;
- const rows=(data[table]||[]).map(r=>normalizeForInsert(r,table));
- if(!rows.length)return;
- const {data:written,error}=await supabaseClient.from(table).upsert(rows,{onConflict:"id"}).select("*");
- if(error){console.error("Sync "+table,error);toast("Erreur Supabase : "+error.message);return}
- if(written?.length){data[table]=written.map(r=>fromDbRow(r,table));}
+async function cloudInsert(table,row){
+ const payload=normalizeForInsert(row,table);
+ const {data:written,error}=await supabaseClient.from(table).insert(payload).select("*").single();
+ if(error) throw error;
+ return fromDbRow(written,table);
 }
-function save(){
- try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}
- if(!cloudReady)return;
- clearTimeout(syncTimer);
- syncTimer=setTimeout(async()=>{
-   try{for(const table of ["members","transactions","projects","requests","ideas"]) await syncTable(table);}
-   catch(e){console.error(e)}
- },250);
+async function cloudUpdate(table,id,row){
+ const payload=normalizeForInsert(row,table); delete payload.id;
+ const {data:written,error}=await supabaseClient.from(table).update(payload).eq("id",id).select("*").single();
+ if(error) throw error;
+ return fromDbRow(written,table);
 }
+async function cloudDelete(table,id){
+ const {error}=await supabaseClient.from(table).delete().eq("id",id);
+ if(error) throw error;
+}
+async function saveDashboardSettings(){
+ const s=data.dashboardSettings||{id:1,member_count_display:null,balance_display:null};
+ const payload={id:1,member_count_display:s.member_count_display,balance_display:s.balance_display};
+ const {data:row,error}=await supabaseClient.from("dashboard_settings").upsert(payload,{onConflict:"id"}).select("*").single();
+ if(error) throw error;
+ data.dashboardSettings=row;
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}}
 async function refreshFromRealtime(){
- try{for(const table of ["members","transactions","projects","requests","ideas"]) data[table]=await loadCloudTable(table);save();render()}
- catch(e){console.error("Realtime refresh",e)}
+ try{
+  for(const table of ["members","transactions","projects","requests","ideas","meetings"]) data[table]=await loadCloudTable(table);
+  await loadDashboardSettings(); render();
+ }catch(e){console.error("Realtime refresh",e)}
 }
 function subscribeRealtime(){
  supabaseClient.channel("generation-miracle-db")
@@ -335,6 +339,8 @@ function subscribeRealtime(){
  .on("postgres_changes",{event:"*",schema:"public",table:"projects"},refreshFromRealtime)
  .on("postgres_changes",{event:"*",schema:"public",table:"requests"},refreshFromRealtime)
  .on("postgres_changes",{event:"*",schema:"public",table:"ideas"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"meetings"},refreshFromRealtime)
+ .on("postgres_changes",{event:"*",schema:"public",table:"dashboard_settings"},refreshFromRealtime)
  .subscribe((status)=>console.log("Realtime:",status));
 }
 async function startApplication(){
@@ -376,52 +382,38 @@ function empty(icon,text,button=""){return `<div class="empty"><div class="big">
 
 /* ---------- DASHBOARD ---------- */
 function dashboard(){
- const balance=data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?t.amount:-t.amount),0);
- const openReq=data.requests.filter(r=>r.status!=="Clôturée").length;
- const urgent=data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").length;
- const ideas=data.ideas.length;
+ const calculatedBalance=data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?Number(t.amount):-Number(t.amount)),0);
+ const displayedMembers=data.dashboardSettings?.member_count_display ?? TOTAL_MEMBERS;
+ const displayedBalance=data.dashboardSettings?.balance_display ?? calculatedBalance;
  return pageHead("Tableau de bord","Le centre de pilotage de la Génération Miracle.",
  `<button class="btn btn-primary" onclick="openModal('Publier une information','post')">+ Publier</button>
   <button class="btn btn-gold" onclick="openModal('Nouvelle demande d’aide','request')">+ Demander de l’aide</button>`)
  +`<div class="grid g4">
- ${stat("Membres",TOTAL_MEMBERS,`${data.members.length} ont renseigné leur nom · ${TOTAL_MEMBERS-data.members.length} places à compléter`)}
- ${stat("Solde affiché",money(balance),"Livre de caisse · responsable : Trésorier(e)")}
- ${stat("Demandes ouvertes",openReq,urgent+" urgente(s) · responsable attribué à chaque ticket")}
- ${stat("Projets suivis",data.projects.length,ideas+" idée(s) enregistrée(s)")}
+ ${stat("Membres",displayedMembers,`${data.members.length} profils renseignés · ${Math.max(0,TOTAL_MEMBERS-data.members.length)} places à compléter`)}
+ ${stat("Solde affiché",money(displayedBalance),"Valeur de référence du tableau de bord")}
+ ${stat("Idées",data.ideas.length,"propositions enregistrées")}
+ ${stat("Projets",data.projects.length,"portefeuille de la communauté")}
  </div>
- <div class="control-lock" style="margin-top:16px"><b>👥 81 membres prévus</b> · ${data.members.length} profils renseignés actuellement. Chaque membre peut s'ajouter librement depuis « Membres ». Les fonctions de direction sont gérées séparément et leurs noms ne sont pas affichés ici.</div>
+ <div class="control-lock" style="margin-top:16px"><b>👥 81 membres prévus</b> · ${data.members.length} profils renseignés actuellement. Les valeurs « Membres » et « Solde affiché » sont pilotées depuis la Tour de contrôle.</div>
  <div class="grid wide" style="margin-top:16px">
   <div>
-   <div class="section-head"><h2>Situation collective</h2><span class="muted small">Mise à jour locale · ${now()}</span></div>
+   <div class="section-head"><h2>Situation collective</h2><span class="muted small">Mise à jour · ${now()}</span></div>
    <div class="card">
     <div class="kpi"><div><div class="muted small">Membres renseignés</div><strong style="font-size:24px">${data.members.length} / ${TOTAL_MEMBERS}</strong></div>${badge("Profils")}</div>
     <div class="progress" style="margin:13px 0 18px"><i style="width:${Math.min(100,data.members.length/TOTAL_MEMBERS*100)}%"></i></div>
-    <div class="grid g3">
-      <div><b>${TOTAL_MEMBERS}</b><div class="muted small">membres prévus</div></div>
-      <div><b>${data.members.length}</b><div class="muted small">noms renseignés</div></div>
-      <div><b>${TOTAL_MEMBERS-data.members.length}</b><div class="muted small">profils à compléter</div></div>
-    </div>
+    <div class="grid g3"><div><b>${TOTAL_MEMBERS}</b><div class="muted small">membres prévus</div></div><div><b>${data.members.length}</b><div class="muted small">noms renseignés</div></div><div><b>${Math.max(0,TOTAL_MEMBERS-data.members.length)}</b><div class="muted small">profils à compléter</div></div></div>
    </div>
   </div>
   <div>
    <div class="section-head"><h2>Caisse commune</h2><button class="btn btn-light btn-small" onclick="go('finance')">Voir le livre</button></div>
-   <div class="card">
-    <div class="muted small">Solde calculé depuis le livre</div><div class="money">${money(balance)}</div>
-    <div class="split small"><span>Objectif Phase 1</span><b>80 000 FCFA</b></div>
-    <div class="progress gold" style="margin:9px 0"><i style="width:${Math.min(100,balance/80000*100)}%"></i></div>
-    <div class="muted small">Transparence · dépenses > 5 000 FCFA soumises au vote.</div>
-   </div>
+   <div class="card"><div class="muted small">Solde affiché sur le tableau de bord</div><div class="money">${money(displayedBalance)}</div><div class="split small"><span>Objectif Phase 1</span><b>80 000 FCFA</b></div><div class="progress gold" style="margin:9px 0"><i style="width:${Math.min(100,Math.max(0,displayedBalance)/80000*100)}%"></i></div><div class="muted small">Le livre de caisse reste consultable séparément.</div></div>
   </div>
  </div>
  <div class="section-head"><h2>Les 7 programmes</h2><span class="muted small">Feuille de route du Pacte Miracle</span></div>
  <div class="grid g3">${programCards()}</div>
  <div class="grid wide" style="margin-top:16px">
-  <div class="card"><div class="section-head" style="margin-top:0"><h2>Demandes à traiter</h2><button class="btn btn-light btn-small" onclick="go('requests')">Tout voir</button></div>
-   ${data.requests.filter(r=>r.status!=="Clôturée").slice(0,4).map(requestRow).join("")||empty("✓","Aucune demande ouverte.")}
-  </div>
-  <div class="card"><div class="section-head" style="margin-top:0"><h2>Activité récente</h2><button class="btn btn-light btn-small" onclick="go('activity')">Journal</button></div>
-   ${data.activity.slice(0,6).map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.text)}</b><div class="muted small">${esc(a.time)} · ${esc(a.actor)}</div></div></div>`).join("")||`<div class="muted">Aucune activité enregistrée.</div>`}
-  </div>
+  <div class="card"><div class="section-head" style="margin-top:0"><h2>Activité récente</h2><button class="btn btn-light btn-small" onclick="go('activity')">Journal</button></div>${data.activity.slice(0,6).map(a=>`<div class="activity"><div class="dot"></div><div><b>${esc(a.text)}</b><div class="muted small">${esc(a.time)} · ${esc(a.actor)}</div></div></div>`).join("")||`<div class="muted">Aucune activité enregistrée.</div>`}</div>
+  <div class="card"><div class="section-head" style="margin-top:0"><h2>Dernières idées</h2><button class="btn btn-light btn-small" onclick="go('ideas')">Tout voir</button></div>${data.ideas.slice(0,5).map(i=>`<div class="list-item"><div class="split"><b>${esc(i.title)}</b>${badge(i.status)}</div><div class="muted small">${esc(i.author)} · ${esc(i.date)}</div></div>`).join("")||`<div class="muted">Aucune idée enregistrée.</div>`}</div>
  </div>`;
 }
 function programCards(){
@@ -481,15 +473,20 @@ function finance(){
  const ins=data.transactions.filter(t=>t.type==="Entrée").reduce((s,t)=>s+Number(t.amount),0);
  const outs=data.transactions.filter(t=>t.type==="Sortie").reduce((s,t)=>s+Number(t.amount),0);
  return pageHead("Caisse & finances","Livre de caisse transparent, cotisations, recettes, dépenses et traçabilité.",
- `<button class="btn btn-primary" onclick="openModal('Nouvelle opération','transaction')">+ Opération</button>`)
+  controlUnlocked?`<button class="btn btn-primary" onclick="openModal('Nouvelle opération','transaction')">+ Opération</button>`:`<span class="badge gray">🔒 Lecture seule</span>`)
  +`<div class="grid g4">${stat("Solde",money(balance),"Calculé par le livre")}${stat("Recettes",money(ins),"Total entrées")}${stat("Dépenses",money(outs),"Total sorties")}${stat("Cotisation de référence","500 FCFA","par membre / mois")}</div>
- <div class="grid wide" style="margin-top:16px">
- <div class="card"><div class="section-head" style="margin-top:0"><h2>Livre de caisse</h2><button class="btn btn-light btn-small" onclick="exportTransactions()">Exporter CSV</button></div>
- <div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Opération</th><th>Catégorie</th><th>Type</th><th>Montant</th><th>Responsable</th><th>Note</th></tr></thead><tbody>
- ${data.transactions.slice().reverse().map(t=>`<tr><td>${esc(t.date)}</td><td><b>${esc(t.label)}</b></td><td>${esc(t.category)}</td><td>${badge(t.type)}</td><td class="${t.type==="Entrée"?"positive":"negative"}"><b>${t.type==="Entrée"?"+":"−"}${money(t.amount)}</b></td><td>${esc(t.by)}</td><td>${esc(t.note||"")}</td></tr>`).join("")}
- </tbody></table></div></div>
- <div class="card"><h3>Règles de contrôle</h3><ul class="small" style="line-height:1.9"><li>Livre de caisse accessible aux membres.</li><li>Bilan financier présenté chaque mois.</li><li>Toute dépense supérieure à 5 000 FCFA doit être votée.</li><li>Deux signatures pour tout retrait : Président + Trésorier.</li></ul><div class="notice">Ces règles sont issues de la charte fournie. La V1 les affiche mais ne peut pas juridiquement remplacer vos procédures internes.</div></div></div>
+ <div class="grid wide" style="margin-top:16px"><div class="card"><div class="section-head" style="margin-top:0"><h2>Livre de caisse</h2><button class="btn btn-light btn-small" onclick="exportTransactions()">Exporter CSV</button></div>
+ <div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Opération</th><th>Catégorie</th><th>Type</th><th>Montant</th><th>Responsable</th><th>Note</th>${controlUnlocked?"<th>Action</th>":""}</tr></thead><tbody>
+ ${data.transactions.slice().reverse().map(t=>`<tr><td>${esc(t.date)}</td><td><b>${esc(t.label)}</b></td><td>${esc(t.category)}</td><td>${badge(t.type)}</td><td class="${t.type==="Entrée"?"positive":"negative"}"><b>${t.type==="Entrée"?"+":"−"}${money(t.amount)}</b></td><td>${esc(t.by)}</td><td>${esc(t.note||"")}</td>${controlUnlocked?`<td><button class="btn btn-danger btn-small" onclick="deleteTransaction('${t.id}')">Supprimer</button></td>`:""}</tr>`).join("")||`<tr><td colspan="${controlUnlocked?8:7}">${empty("₣","Aucune opération enregistrée.")}</td></tr>`}
+ </tbody></table></div></div><div class="card"><h3>Règles de contrôle</h3><ul class="small" style="line-height:1.9"><li>Livre de caisse accessible aux membres.</li><li>Bilan financier présenté chaque mois.</li><li>Toute dépense supérieure à 5 000 FCFA doit être votée.</li><li>Deux signatures pour tout retrait : Président + Trésorier.</li></ul><div class="notice">Les membres disposent d'un accès en lecture seule. Les opérations sont administrées depuis la Tour de contrôle.</div></div></div>
  <div class="section-head"><h2>Évolution mensuelle</h2></div><div class="card">${financeChart()}</div>`;
+}
+async function deleteTransaction(id){
+ if(!requireControl())return;
+ const t=data.transactions.find(x=>String(x.id)===String(id));if(!t)return;
+ if(!confirm(`Supprimer l'opération « ${t.label} » de ${money(t.amount)} ?`))return;
+ try{await cloudDelete("transactions",id);data.transactions=data.transactions.filter(x=>String(x.id)!==String(id));addActivity(`Tour de contrôle : opération de caisse supprimée · ${t.label}`);render();toast("Opération supprimée")}
+ catch(e){showToastError(e.message)}
 }
 function financeChart(){
  const vals=[26500,26500,28000,31000,38000,46000,52000,61000,68000,72000,77000,80000];
@@ -512,45 +509,67 @@ function requests(){
  <div id="requestList">${data.requests.length?data.requests.map(requestCard).join(""):empty("✓","Aucune demande enregistrée.")}</div>`;
 }
 function requestCard(r){
- return `<div class="card" style="margin-bottom:10px"><div class="split"><div><b>${esc(r.id)} · ${esc(r.title)}</b><div class="muted small">${esc(r.member)} · ${esc(r.category)} · ${esc(r.date)}</div></div><div>${badge(r.priority)} ${badge(r.status)}</div></div>
- <p class="small">${esc(r.detail)}</p><div class="split"><span class="muted small">Responsable : <b>${esc(r.owner||"À désigner")}</b></span><div class="actions">${r.status!=="Clôturée"?`<button class="btn btn-light btn-small" onclick="advanceRequest('${r.id}')">Avancer le statut</button>`:""}<button class="btn btn-light btn-small" onclick="openRequest('${r.id}')">Détails</button></div></div></div>`;
+ return `<div class="card" style="margin-bottom:10px"><div class="split"><div><b>${esc(r.id)} · ${esc(r.title)}</b><div class="muted small">${esc(r.member)} · ${esc(r.category)} · ${esc(r.date)}</div></div><div>${badge(r.priority)} ${badge(r.status)}</div></div><p class="small">${esc(r.detail)}</p><div class="split"><span class="muted small">Responsable : <b>${esc(r.owner||"À désigner")}</b></span><div class="actions"><button class="btn btn-light btn-small" onclick="openRequest('${r.id}')">Détails</button></div></div></div>`;
 }
 function renderRequests(){
  const f=document.getElementById("reqFilter")?.value||"",p=document.getElementById("reqPriority")?.value||"";
  const list=data.requests.filter(r=>(!f||r.status===f)&&(!p||r.priority===p));
  document.getElementById("requestList").innerHTML=list.map(requestCard).join("")||empty("✓","Aucune demande ne correspond aux filtres.");
 }
-function advanceRequest(id){
+async function advanceRequest(id){
+ if(!requireControl())return;
  const r=data.requests.find(x=>x.id===id);if(!r)return;
  const seq=["Nouvelle","En cours","Clôturée"];r.status=seq[(seq.indexOf(r.status)+1)%seq.length];
- addActivity(`Demande ${r.id} : statut → ${r.status}`);notify(`La demande ${r.id} est maintenant « ${r.status} »`);render();toast("Statut mis à jour");
+ try{await cloudUpdate("requests",id,r);addActivity(`Demande ${r.id} : statut → ${r.status}`);notify(`La demande ${r.id} est maintenant « ${r.status} »`);render();toast("Statut mis à jour")}
+ catch(e){showToastError(e.message)}
 }
 function openRequest(id){
  const r=data.requests.find(x=>x.id===id);if(!r)return;
  document.getElementById("modalTitle").textContent=`Demande ${r.id}`;
- document.getElementById("modalBody").innerHTML=`<div class="card"><h3>${esc(r.title)}</h3><p>${esc(r.detail)}</p><p class="small"><b>Membre :</b> ${esc(r.member)}<br><b>Catégorie :</b> ${esc(r.category)}<br><b>Priorité :</b> ${esc(r.priority)}<br><b>Responsable :</b> ${esc(r.owner)}<br><b>Créée :</b> ${esc(r.date)}</p></div>
- <div class="form" style="margin-top:12px"><label>Responsable</label><input id="editOwner" value="${esc(r.owner||"")}"><label>Statut</label><select id="editStatus"><option ${r.status==="Nouvelle"?"selected":""}>Nouvelle</option><option ${r.status==="En cours"?"selected":""}>En cours</option><option ${r.status==="Clôturée"?"selected":""}>Clôturée</option></select><button class="btn btn-primary" onclick="saveRequest('${r.id}')">Enregistrer</button></div>`;
+ document.getElementById("modalBody").innerHTML=`<div class="card"><h3>${esc(r.title)}</h3><p>${esc(r.detail)}</p><p class="small"><b>Membre :</b> ${esc(r.member)}<br><b>Catégorie :</b> ${esc(r.category)}<br><b>Priorité :</b> ${esc(r.priority)}<br><b>Responsable :</b> ${esc(r.owner||"À désigner")}<br><b>Créée :</b> ${esc(r.date)}</p></div>${controlUnlocked?`<div class="form" style="margin-top:12px"><label>Responsable</label><input id="editOwner" value="${esc(r.owner||"")}"><label>Statut</label><select id="editStatus"><option ${r.status==="Nouvelle"?"selected":""}>Nouvelle</option><option ${r.status==="En cours"?"selected":""}>En cours</option><option ${r.status==="Clôturée"?"selected":""}>Clôturée</option></select><button class="btn btn-primary" onclick="saveRequest('${r.id}')">Enregistrer</button></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Seule la Tour de contrôle peut modifier le statut ou le responsable.</div>`}`;
  document.getElementById("modal").classList.add("open");
 }
-function saveRequest(id){
- const r=data.requests.find(x=>x.id===id);if(!r)return;r.owner=document.getElementById("editOwner").value;r.status=document.getElementById("editStatus").value;addActivity(`Demande ${id} mise à jour`);closeModal();render();toast("Demande mise à jour");
+async function saveRequest(id){
+ if(!requireControl())return;
+ const r=data.requests.find(x=>x.id===id);if(!r)return;
+ r.owner=document.getElementById("editOwner").value;r.status=document.getElementById("editStatus").value;
+ try{await cloudUpdate("requests",id,r);addActivity(`Demande ${id} mise à jour`);closeModal();render();toast("Demande mise à jour")}
+ catch(e){showToastError(e.message)}
 }
 
 /* ---------- IDEAS ---------- */
 function ideas(){
  return pageHead("Boîte à idées","Proposer, discuter, étudier et transformer les idées en actions.",
  `<button class="btn btn-gold" onclick="openModal('Proposer une idée','idea')">+ Proposer une idée</button>`)
- +`<div class="grid wide"><div class="card"><h3>Cycle d'une idée</h3><div class="timeline"><div class="timeline-item"><b>1 · Proposition</b><div class="muted small">Un membre décrit l'idée et le problème à résoudre.</div></div><div class="timeline-item"><b>2 · Étude</b><div class="muted small">Faisabilité, ressources, personnes concernées.</div></div><div class="timeline-item"><b>3 · Vote si nécessaire</b><div class="muted small">Les décisions importantes suivent les règles de gouvernance.</div></div><div class="timeline-item"><b>4 · Responsable + échéance</b><div class="muted small">Une décision sans responsable n'est pas opérationnelle.</div></div><div class="timeline-item"><b>5 · Exécution</b><div class="muted small">Suivi jusqu'à la clôture.</div></div></div></div>
- <div class="card"><div class="section-head" style="margin-top:0"><h2>Idées de la communauté</h2><span class="muted small">${data.ideas.length} idée(s)</span></div>${data.ideas.map(i=>`<div class="list-item"><div class="split"><div><b>${esc(i.title)}</b><div class="muted small">${esc(i.author)} · ${esc(i.category)} · ${esc(i.date)}</div></div>${badge(i.status)}</div><p class="small">${esc(i.detail)}</p><div class="responsible">👤 Responsable : <b>${esc(i.responsible||"À désigner")}</b></div><div style="margin-top:9px"><button class="btn btn-light btn-small" onclick="advanceIdea('${i.id}')">Faire avancer</button></div></div>`).join("")||empty("✦","Aucune idée pour le moment.")}</div></div>`;
+ +`<div class="grid wide"><div class="card"><h3>Cycle d'une idée</h3><div class="timeline"><div class="timeline-item"><b>1 · Proposition</b><div class="muted small">Un membre décrit l'idée et le problème à résoudre.</div></div><div class="timeline-item"><b>2 · Étude</b><div class="muted small">Le pilotage étudie la faisabilité et les ressources.</div></div><div class="timeline-item"><b>3 · Décision</b><div class="muted small">Le statut est modifié uniquement par la Tour de contrôle.</div></div><div class="timeline-item"><b>4 · Responsable + échéance</b><div class="muted small">Une décision opérationnelle reçoit un responsable.</div></div><div class="timeline-item"><b>5 · Exécution</b><div class="muted small">Suivi jusqu'à la clôture.</div></div></div></div>
+ <div class="card"><div class="section-head" style="margin-top:0"><h2>Idées de la communauté</h2><span class="muted small">${data.ideas.length} idée(s)</span></div>${data.ideas.map(i=>`<div class="list-item"><div class="split"><div><b>${esc(i.title)}</b><div class="muted small">${esc(i.author)} · ${esc(i.category)} · ${esc(i.date)}</div></div>${badge(i.status)}</div><p class="small">${esc(i.detail)}</p><div class="responsible">👤 Responsable : <b>${esc(i.responsible||"À désigner")}</b></div><div style="margin-top:9px"><button class="btn btn-light btn-small" onclick="openIdea('${i.id}')">Détails</button></div></div>`).join("")||empty("✦","Aucune idée pour le moment.")}</div></div>`;
 }
-function advanceIdea(id){
- const i=data.ideas.find(x=>x.id===id);if(!i)return;const seq=["À étudier","En discussion","Validée","En cours","Terminée"];i.status=seq[(seq.indexOf(i.status)+1)%seq.length];addActivity(`Idée ${i.id} : statut → ${i.status}`);save();render();toast("Idée mise à jour");
+function openIdea(id){
+ const i=data.ideas.find(x=>x.id===id);if(!i)return;
+ document.getElementById("modalTitle").textContent=`Idée · ${i.title}`;
+ document.getElementById("modalBody").innerHTML=`<div class="card"><h3>${esc(i.title)}</h3><p>${esc(i.detail)}</p><p class="small"><b>Auteur :</b> ${esc(i.author)}<br><b>Catégorie :</b> ${esc(i.category)}<br><b>Statut :</b> ${esc(i.status)}<br><b>Responsable :</b> ${esc(i.responsible||"À désigner")}<br><b>Date :</b> ${esc(i.date)}</p></div>${controlUnlocked?`<div class="form" style="margin-top:12px"><label>Statut</label><select id="ideaEditStatus"><option>À étudier</option><option>En discussion</option><option>Validée</option><option>En cours</option><option>Terminée</option><option>Refusée</option></select><label>Responsable</label><select id="ideaEditOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="saveIdea('${i.id}')">Enregistrer</button></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Seule la Tour de contrôle peut faire avancer cette idée.</div>`}`;
+ if(controlUnlocked){document.getElementById("ideaEditStatus").value=i.status;document.getElementById("ideaEditOwner").value=i.responsible||LEADERSHIP_ROLES[0];}
+ document.getElementById("modal").classList.add("open");
+}
+async function advanceIdea(id){
+ if(!requireControl())return;
+ const i=data.ideas.find(x=>x.id===id);if(!i)return;
+ const seq=["À étudier","En discussion","Validée","En cours","Terminée"];i.status=seq[(seq.indexOf(i.status)+1)%seq.length];
+ try{await cloudUpdate("ideas",id,i);addActivity(`Idée ${i.id} : statut → ${i.status}`);render();toast("Idée mise à jour")}
+ catch(e){showToastError(e.message)}
+}
+async function saveIdea(id){
+ if(!requireControl())return;
+ const i=data.ideas.find(x=>x.id===id);if(!i)return;
+ i.status=document.getElementById("ideaEditStatus").value;i.responsible=document.getElementById("ideaEditOwner").value;
+ try{await cloudUpdate("ideas",id,i);addActivity(`Idée ${i.id} mise à jour`);notify(`Mise à jour d'une idée : ${i.title}`);closeModal();render();toast("Idée mise à jour")}
+ catch(e){showToastError(e.message)}
 }
 
 /* ---------- PROJECTS ---------- */
 function projects(){
  return pageHead("Projets","Portefeuille de projets, progression, responsables et ressources.",
- `<button class="btn btn-primary" onclick="openModal('Nouveau projet','project')">+ Nouveau projet</button>`)
+ `<button class="btn btn-primary" onclick="openAdminAction('project')">🔐 + Nouveau projet</button>`)
  +`<div class="kanban">${["À lancer","Planifié","En cours","Terminé"].map(st=>`<div class="kanban-col"><div class="kanban-title">${st} <span class="muted">· ${data.projects.filter(p=>p.status===st).length}</span></div>${data.projects.filter(p=>p.status===st).map(p=>projectCard(p)).join("")||`<div class="muted small" style="padding:15px 5px">Aucun projet.</div>`}</div>`).join("")}</div>
  <div class="section-head"><h2>Portefeuille</h2></div><div class="grid g3">${data.projects.map(p=>`<div class="module"><span class="badge">${esc(p.status)}</span><h3>${esc(p.title)}</h3><p>${esc(p.description)}</p><div class="progress"><i style="width:${p.progress}%"></i></div><div class="split small" style="margin-top:8px"><span>${p.progress}%</span><span>${money(p.budget)}</span></div><div class="responsible" style="margin-top:8px">👤 Responsable : <b>${esc(p.owner)}</b></div></div>`).join("")}</div>`;
 }
@@ -558,10 +577,17 @@ function projectCard(p){return `<div class="task"><div class="row"><b>${esc(p.ti
 function openProject(id){
  const p=data.projects.find(x=>x.id===id);if(!p)return;
  document.getElementById("modalTitle").textContent=p.title;
- document.getElementById("modalBody").innerHTML=`<p>${esc(p.description)}</p><div class="grid g2"><div class="card"><b>Statut</b><p>${badge(p.status)}</p></div><div class="card"><b>Progression</b><p>${p.progress}%</p><div class="progress"><i style="width:${p.progress}%"></i></div></div><div class="card"><b>Responsable</b><p>${esc(p.owner)}</p></div><div class="card"><b>Budget</b><p>${money(p.budget)}</p></div></div><div class="form"><label>Progression (%)</label><input id="projectProgress" type="number" min="0" max="100" value="${p.progress}"><button class="btn btn-primary" onclick="saveProject('${p.id}')">Mettre à jour</button></div>`;
+ document.getElementById("modalBody").innerHTML=`<p>${esc(p.description)}</p><div class="grid g2"><div class="card"><b>Statut</b><p>${badge(p.status)}</p></div><div class="card"><b>Progression</b><p>${p.progress}%</p><div class="progress"><i style="width:${p.progress}%"></i></div></div><div class="card"><b>Responsable</b><p>${esc(p.owner)}</p></div><div class="card"><b>Budget</b><p>${money(p.budget)}</p></div></div>${adminUnlocked?`<div class="form"><label>Progression (%)</label><input id="projectProgress" type="number" min="0" max="100" value="${p.progress}"><button class="btn btn-primary" onclick="saveProject('${p.id}')">Mettre à jour</button></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Les modifications sont réservées à l'administration.</div>`}`;
  document.getElementById("modal").classList.add("open");
 }
-function saveProject(id){const p=data.projects.find(x=>x.id===id);p.progress=Math.max(0,Math.min(100,Number(document.getElementById("projectProgress").value)||0));if(p.progress===100)p.status="Terminé";else if(p.progress>0)p.status="En cours";addActivity(`Projet ${p.title} : progression ${p.progress}%`);closeModal();render();toast("Projet mis à jour")}
+async function saveProject(id){
+ if(!requireAdmin())return;
+ const p=data.projects.find(x=>x.id===id);if(!p)return;
+ p.progress=Math.max(0,Math.min(100,Number(document.getElementById("projectProgress").value)||0));
+ if(p.progress===100)p.status="Terminé";else if(p.progress>0)p.status="En cours";
+ try{await cloudUpdate("projects",id,p);addActivity(`Projet ${p.title} : progression ${p.progress}%`);closeModal();render();toast("Projet mis à jour")}
+ catch(e){showToastError(e.message)}
+}
 
 /* ---------- JOBS ---------- */
 function jobs(){
@@ -626,7 +652,7 @@ function castVote(id,type){const v=data.votes.find(x=>x.id===id);if(!v)return;v[
 /* ---------- MEETINGS ---------- */
 function meetings(){
  return pageHead("Réunions","Ordre du jour, réunions mensuelles, comptes-rendus et actions décidées.",
- `<button class="btn btn-primary" onclick="openModal('Programmer une réunion','meeting')">+ Programmer</button>`)
+ `<button class="btn btn-primary" onclick="openAdminAction('meeting')">🔐 + Programmer</button>`)
  +`<div class="grid g2"><div class="card"><h3>Règle de réunion</h3><p class="small">Réunion mensuelle, date fixée à l'avance. Ordre du jour partagé 48h avant. Compte-rendu dans les 24h, y compris pour les absents.</p><span class="badge">Mensuel</span></div><div class="card"><h3>Règle d'action</h3><p class="small">Chaque décision doit être associée à un responsable et à une échéance.</p><span class="badge gold">Responsable + date</span></div></div>
  <div class="section-head"><h2>Calendrier</h2></div><div class="card">${data.meetings.map(m=>`<div class="list-item"><div class="split"><div><b>${esc(m.title)}</b><div class="muted small">${esc(m.date)} · ${esc(m.time)}</div></div><span class="badge">${esc(m.status)}</span></div><p class="small">${esc(m.agenda)}</p><div class="responsible">👤 Responsable : <b>${esc(m.responsible||"Secrétaire")}</b></div></div>`).join("")||empty("◷","Aucune réunion programmée.")}</div>`;
 }
@@ -647,14 +673,18 @@ function clearActivity(){if(confirm("Effacer le journal local ?")){data.activity
 
 /* ---------- SETTINGS ---------- */
 function settings(){
- return pageHead("Paramètres","Configuration de la plateforme et préparation au branchement de la base de données.",
- `<button class="btn btn-primary" onclick="exportBackup()">Exporter mes données</button>`)
- +`<div class="grid g2"><div class="card"><h3>Identité de la communauté</h3><div class="form"><label>Nom</label><input value="Génération Miracle" id="orgName"><label>Devise</label><input value="FCFA" id="currency"><label>Président</label><input value="Elisée Melchi Mabondzo" id="president"><button class="btn btn-primary" onclick="saveSettings()">Enregistrer</button></div></div>
- <div class="card"><h3>Tour de contrôle</h3><p class="small">Accès de pilotage protégé par le mot de passe <b>Generation_miracle</b> dans ce prototype. Pour une mise en production, le contrôle doit être déplacé côté serveur.</p><button class="btn btn-light btn-small" onclick="go('control')">Ouvrir le tour de contrôle</button></div><div class="card"><h3>Connexion des données</h3><p class="small">Cette V1 autonome utilise <b>localStorage</b>. Pour un vrai temps réel entre les 81 membres, il faut connecter une base serveur avec authentification, droits d'accès et synchronisation temps réel.</p><div class="info">Google Sheets : utilisez le module Import pour transférer les profils dans la plateforme. Ne placez pas une clé secrète Google dans un fichier HTML public.</div></div>
- <div class="card"><h3>Rôles recommandés</h3><p class="small">Président · Vice-président · Secrétaire · Trésorier · Adjoint trésorier · Responsable organisation · Adjoints organisation · Chargé communication · Adjoint communication.</p></div>
- <div class="card"><h3>Données locales</h3><p class="small">Membres : ${data.members.length} / ${TOTAL_MEMBERS}<br>Profils à compléter : ${TOTAL_MEMBERS-data.members.length}<br>Idées : ${data.ideas.length}<br>Demandes : ${data.requests.length}<br>Transactions : ${data.transactions.length}<br>Projets : ${data.projects.length}</p><button class="btn btn-danger btn-small" onclick="resetDemo()">Réinitialiser la démo</button></div></div>`;
+ if(!controlUnlocked){
+  return pageHead("Paramètres","Configuration protégée de la plateforme.",`<span class="badge gray">🔒 Verrouillé</span>`)
+  +`<div class="card" style="max-width:760px"><div class="control-lock"><b>🔒 Paramètres protégés</b><br>Les données de configuration sont en lecture seule. Toute modification nécessite le code de pilotage.</div><div class="section-head"><h2>Déverrouillage</h2></div><button class="btn btn-primary" onclick="openControlLogin('settings')">Déverrouiller les paramètres</button><div class="info" style="margin-top:14px">Le code est vérifié par Supabase et n'est pas stocké dans le JavaScript public.</div></div>`;
+ }
+ return pageHead("Paramètres","Configuration de la plateforme — session de pilotage active.",`<button class="btn btn-light" onclick="exportBackup()">Exporter mes données</button><button class="btn btn-light" onclick="logoutControl()">🔒 Verrouiller</button>`)
+ +`<div class="grid g2"><div class="card"><h3>Identité de la communauté</h3><div class="form"><label>Nom</label><input value="Génération Miracle" readonly><label>Devise</label><input value="FCFA" readonly><label>Président</label><input value="Elisée Melchi Mabondzo" readonly><div class="info">Ces informations sont figées dans cette version.</div></div></div>
+ <div class="card"><h3>Tour de contrôle</h3><p class="small">Session de pilotage active. Les modifications sensibles restent soumises aux politiques Supabase.</p><button class="btn btn-light btn-small" onclick="go('control')">Ouvrir le tour de contrôle</button></div>
+ <div class="card"><h3>Connexion des données</h3><p class="small">Les modules centraux sont synchronisés avec Supabase et Realtime. Les membres disposent d'un accès en lecture pour les données partagées.</p><div class="info">Les modifications sensibles sont réservées au pilotage ou à l'administration.</div></div>
+ <div class="card"><h3>Rôles</h3><p class="small">Président · Vice-président · Secrétaire · Trésorier · Adjoint trésorier · Responsable organisation · Adjoints organisation · Chargé communication · Adjoint communication.</p></div>
+ <div class="card"><h3>État des données</h3><p class="small">Membres : ${data.members.length} / ${TOTAL_MEMBERS}<br>Idées : ${data.ideas.length}<br>Demandes : ${data.requests.length}<br>Transactions : ${data.transactions.length}<br>Projets : ${data.projects.length}<br>Réunions : ${data.meetings.length}</p></div></div>`;
 }
-function saveSettings(){addActivity("Paramètres généraux enregistrés");toast("Paramètres enregistrés");render()}
+function saveSettings(){if(!controlUnlocked)return;toast("Les paramètres sont protégés");render()}
 
 /* ---------- SEARCH ---------- */
 function searchPage(q){
@@ -672,20 +702,23 @@ function searchPage(q){
 
 /* ---------- MODALS ---------- */
 function openModal(title,type){
+ if(type==="project"||type==="meeting"){if(!requireAdmin())return}
+ if(type==="transaction"){if(!requireControl())return}
  modalType=type;document.getElementById("modalTitle").textContent=title;
  let b="";
  if(type==="request")b=`<div class="form"><label>Objet</label><input id="fTitle" placeholder="Ex. besoin de transport pour un entretien"><label>Catégorie</label><select id="fCat"><option>Emploi</option><option>Transport</option><option>Compétence</option><option>Projet</option><option>Financier</option><option>Formation</option><option>Autre</option></select><label>Priorité</label><select id="fPriority"><option>Normale</option><option>Urgente</option></select><label>Description</label><textarea id="fDetail" placeholder="Décris précisément la demande et ce qui serait utile."></textarea><button class="btn btn-primary" onclick="submitRequest()">Créer la demande</button></div>`;
  else if(type==="idea")b=`<div class="form"><label>Titre</label><input id="fTitle" placeholder="Ex. créer une centrale de fournitures"><label>Type</label><select id="fCat"><option>Projet</option><option>Suggestion</option><option>Organisation</option><option>Entraide</option><option>Emploi</option></select><label>Description</label><textarea id="fDetail" placeholder="Quel problème ? Quelle idée ? De quoi avez-vous besoin ?"></textarea><button class="btn btn-gold" onclick="submitIdea()">Soumettre l'idée</button></div>`;
  else if(type==="transaction")b=`<div class="form"><label>Libellé</label><input id="fLabel" placeholder="Ex. cotisation septembre"><label>Type</label><select id="fType"><option>Entrée</option><option>Sortie</option></select><label>Catégorie</label><select id="fCat"><option>Cotisations</option><option>Taxe de solidarité</option><option>Commission</option><option>Fonds de Transport</option><option>Fonds de Garantie</option><option>Achats</option><option>Transport</option><option>Autre</option></select><label>Montant (FCFA)</label><input id="fAmount" type="number" min="0" placeholder="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><label>Note / justificatif</label><textarea id="fNote" placeholder="Référence ou explication"></textarea><button class="btn btn-primary" onclick="submitTransaction()">Enregistrer</button></div>`;
- else if(type==="project")b=`<div class="form"><label>Nom du projet</label><input id="fTitle"><label>Description</label><textarea id="fDetail"></textarea><label>Responsable</label><input id="fOwner" placeholder="Nom / fonction"><label>Budget initial (FCFA)</label><input id="fAmount" type="number" min="0" value="0"><button class="btn btn-primary" onclick="submitProject()">Créer le projet</button></div>`;
+ else if(type==="project")b=`<div class="form"><div class="control-lock">🔐 Administration requise · code Admin_gm.</div><label>Nom du projet</label><input id="fTitle"><label>Description</label><textarea id="fDetail"></textarea><label>Responsable</label><input id="fOwner" placeholder="Nom / fonction"><label>Budget initial (FCFA)</label><input id="fAmount" type="number" min="0" value="0"><button class="btn btn-primary" onclick="submitProject()">Créer le projet</button></div>`;
  else if(type==="opportunity")b=`<div class="form"><label>Intitulé</label><input id="fTitle"><label>Entreprise / source</label><input id="fCompany"><label>Secteur</label><input id="fSector" placeholder="Ex. BTP, maintenance, commerce…"><label>Lieu</label><input id="fLocation"><label>Compétences recherchées</label><input id="fSkills"><label>Délai</label><input id="fDeadline" type="date"><button class="btn btn-primary" onclick="submitOpportunity()">Enregistrer l'opportunité</button></div>`;
  else if(type==="service")b=`<div class="form"><label>Service proposé</label><input id="fTitle" placeholder="Ex. dépannage informatique"><label>Catégorie</label><select id="fCat"><option>Beauté & soin</option><option>Tech & informatique</option><option>Commerce</option><option>Cours & formation</option><option>Services pratiques</option><option>Artisanat & cuisine</option><option>Conseil & rédaction</option></select><label>Prix indicatif (FCFA)</label><input id="fAmount" type="number" min="0"><label>Description</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitService()">Déclarer mon service</button></div>`;
  else if(type==="purchase")b=`<div class="form"><label>Produit</label><input id="fTitle" placeholder="Ex. riz 25 kg"><label>Quantité</label><input id="fQty" type="number" min="1"><label>Note</label><textarea id="fDetail" placeholder="Marque, qualité, période souhaitée…"></textarea><button class="btn btn-primary" onclick="submitPurchase()">Enregistrer le besoin</button></div>`;
  else if(type==="international")b=`<div class="form"><label>Mission</label><input id="fTitle"><label>Type</label><select id="fCat"><option>Saisie de données</option><option>Correction</option><option>Traduction</option><option>Enquête</option><option>Assistance virtuelle</option><option>Micro-tâches</option></select><label>Rémunération</label><input id="fAmount" placeholder="Ex. 50 000 FCFA"><label>Délai</label><input id="fDeadline" type="date"><label>Description</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitInternational()">Signaler la mission</button></div>`;
  else if(type==="vote")b=`<div class="form"><label>Question / décision</label><input id="fTitle"><label>Description</label><textarea id="fDetail"></textarea><label>Date limite</label><input id="fDeadline" type="date"><button class="btn btn-primary" onclick="submitVote()">Créer le vote</button></div>`;
- else if(type==="meeting")b=`<div class="form"><label>Titre</label><input id="fTitle" value="Réunion mensuelle — Génération Miracle"><label>Date</label><input id="fDate" type="date"><label>Heure</label><input id="fTime" type="time"><label>Ordre du jour</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitMeeting()">Programmer</button></div>`;
+ else if(type==="meeting")b=`<div class="form"><div class="control-lock">🔐 Administration requise · code Admin_gm.</div><label>Titre</label><input id="fTitle" value="Réunion mensuelle — Génération Miracle"><label>Date</label><input id="fDate" type="date"><label>Heure</label><input id="fTime" type="time"><label>Ordre du jour</label><textarea id="fDetail"></textarea><button class="btn btn-primary" onclick="submitMeeting()">Programmer</button></div>`;
  else if(type==="member")b=`<div class="info">Accès libre : ce formulaire permet à chaque membre de s’ajouter lui-même. Ne renseignez que les informations que vous souhaitez partager avec le groupe.</div><div class="form"><label>Nom complet</label><input id="fName"><label>Statut</label><select id="fStatus"><option>Actif</option><option>Dormant</option></select><label>Ville</label><input id="fCity"><label>Secteur</label><input id="fSector"><label>Compétences (séparées par virgules)</label><input id="fSkills"><label>Ce que je cherche</label><input id="fLooking"><label>Ce que je peux apporter</label><input id="fOffer"><label>Projet</label><textarea id="fProject"></textarea><button class="btn btn-primary" onclick="submitMember()">Ajouter</button></div>`;
- else if(type==="controlTransaction")b=`<div class="form"><div class="control-lock">Action de pilotage · le responsable financier reste visible dans le livre.</div><label>Libellé</label><input id="fLabel"><label>Type</label><select id="fType"><option>Entrée</option><option>Sortie</option></select><label>Catégorie</label><input id="fCat" value="Ajustement / correction"><label>Montant (FCFA)</label><input id="fAmount" type="number" min="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><label>Justification</label><textarea id="fNote"></textarea><button class="btn btn-primary" onclick="controlTransaction()">Enregistrer l'ajustement</button></div>`;
+ else if(type==="dashboardSettings")b=`<div class="form"><div class="control-lock">Action de pilotage · ces valeurs contrôlent uniquement l'affichage du tableau de bord.</div><label>Nombre de membres affiché</label><input id="fDisplayedMembers" type="number" min="0" max="999" value="${esc(data.dashboardSettings?.member_count_display ?? TOTAL_MEMBERS)}"><label>Solde affiché (FCFA)</label><input id="fDisplayedBalance" type="number" step="1" value="${esc(data.dashboardSettings?.balance_display ?? data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?Number(t.amount):-Number(t.amount)),0))}"><button class="btn btn-primary" onclick="controlDashboardSettings()">Enregistrer</button></div>`;
+else if(type==="controlTransaction")b=`<div class="form"><div class="control-lock">Action de pilotage · le responsable financier reste visible dans le livre.</div><label>Libellé</label><input id="fLabel"><label>Type</label><select id="fType"><option>Entrée</option><option>Sortie</option></select><label>Catégorie</label><input id="fCat" value="Ajustement / correction"><label>Montant (FCFA)</label><input id="fAmount" type="number" min="0"><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><label>Justification</label><textarea id="fNote"></textarea><button class="btn btn-primary" onclick="controlTransaction()">Enregistrer l'ajustement</button></div>`;
 else if(type==="controlIdea")b=`<div class="form"><label>Idée</label><select id="fIdea">${data.ideas.map(i=>`<option value="${i.id}">${esc(i.title)}</option>`).join("")}</select><label>Statut</label><select id="fStatus"><option>Validée</option><option>En cours</option><option>À étudier</option><option>Refusée</option><option>Terminée</option></select><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlIdea()">Appliquer</button></div>`;
 else if(type==="controlNotification")b=`<div class="form"><label>Titre / objet</label><input id="fTitle"><label>Message</label><textarea id="fDetail"></textarea><label>Responsable de la diffusion</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlNotification()">Envoyer à la communauté</button></div>`;
 else if(type==="controlAssign")b=`<div class="form"><label>Élément</label><select id="fTarget">${data.requests.map(x=>`<option value="request|${x.id}">Demande · ${esc(x.title)}</option>`).join("")}${data.projects.map(x=>`<option value="project|${x.id}">Projet · ${esc(x.title)}</option>`).join("")}${data.ideas.map(x=>`<option value="idea|${x.id}">Idée · ${esc(x.title)}</option>`).join("")}${data.opportunities.map(x=>`<option value="opportunity|${x.id}">Opportunité · ${esc(x.title)}</option>`).join("")}</select><label>Responsable</label><select id="fOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="controlAssign()">Attribuer</button></div>`;
@@ -698,41 +731,44 @@ else if(type==="import")b=`<div class="form"><div class="info">Collez ici des li
 }
 function closeModal(){document.getElementById("modal").classList.remove("open");modalType=null}
 document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
-function controlTransaction(){if(!requireControl())return;const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();data.transactions.push({id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner"),note:v("fNote")});addActivity("Tour de contrôle : caisse ajustée · "+label);closeModal();render();toast("Caisse ajustée")}
-function controlIdea(){if(!requireControl())return;const i=data.ideas.find(x=>x.id===v("fIdea"));if(!i)return;i.status=v("fStatus");i.responsible=v("fOwner");addActivity("Tour de contrôle : idée mise à jour · "+i.title);notify("Mise à jour d'une idée : "+i.title);closeModal();render();toast("Idée mise à jour")}
-function controlNotification(){if(!requireControl())return;const title=v("fTitle"),detail=v("fDetail");if(!title||!detail)return required();data.notifications.unshift({id:uid("N"),text:title+" — "+detail,time:now(),read:false,responsible:v("fOwner")});addActivity("Notification envoyée : "+title);closeModal();render();toast("Notification envoyée")}
-function controlAssign(){if(!requireControl())return;const [type,id]=v("fTarget").split("|"),owner=v("fOwner");let obj=null;if(type==="request")obj=data.requests.find(x=>x.id===id),obj&&(obj.owner=owner);if(type==="project")obj=data.projects.find(x=>x.id===id),obj&&(obj.owner=owner);if(type==="idea")obj=data.ideas.find(x=>x.id===id),obj&&(obj.responsible=owner);if(type==="opportunity")obj=data.opportunities.find(x=>x.id===id),obj&&(obj.responsible=owner);if(obj){addActivity("Tour de contrôle : responsable attribué à "+owner);closeModal();render();toast("Responsable attribué")}}
-function controlProject(){if(!requireControl())return;const p=data.projects.find(x=>x.id===v("fProject"));if(!p)return;p.progress=Math.max(0,Math.min(100,Number(v("fProgress"))||0));p.budget=Number(v("fAmount"))||0;p.owner=v("fOwner");p.status=p.progress===100?"Terminé":p.progress>0?"En cours":"Planifié";addActivity("Tour de contrôle : projet mis à jour · "+p.title);closeModal();render();toast("Projet mis à jour")}
-function controlMember(){if(!requireControl())return;const m=data.members.find(x=>String(x.id)===v("fMember"));if(!m)return;m.status=v("fStatus");m.sector=v("fSector");m.looking=v("fLooking");m.offer=v("fOffer");addActivity("Tour de contrôle : profil membre mis à jour · "+m.name);closeModal();render();toast("Profil mis à jour")}
-function submitRequest(){const title=v("fTitle"),detail=v("fDetail");if(!title)return required();data.requests.unshift({id:uid("GM"),title,detail,member:"Elisée Melchi Mabondzo",category:v("fCat"),priority:v("fPriority"),status:"Nouvelle",owner:"Responsable d’organisation",date:new Date().toISOString().slice(0,10)});addActivity("Nouvelle demande d'aide : "+title);notify("Nouvelle demande d'aide à traiter : "+title);closeModal();render();toast("Demande créée")}
-function submitIdea(){const title=v("fTitle"),detail=v("fDetail");if(!title)return required();data.ideas.unshift({id:uid("I"),title,detail,category:v("fCat"),author:"Membre",responsible:"Responsable d’organisation",status:"À étudier",date:new Date().toISOString().slice(0,10)});addActivity("Nouvelle idée proposée : "+title);notify("Nouvelle idée : "+title);closeModal();render();toast("Idée envoyée")}
-function submitTransaction(){const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();data.transactions.push({id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner")||"Trésorier(e)",note:v("fNote")});addActivity("Opération financière : "+label);closeModal();render();toast("Opération enregistrée")}
-function submitProject(){const title=v("fTitle");if(!title)return required();data.projects.push({id:uid("P"),title,description:v("fDetail"),status:"À lancer",progress:0,owner:v("fOwner")||"À désigner",budget:Number(v("fAmount"))||0});addActivity("Nouveau projet : "+title);notify("Nouveau projet créé : "+title);closeModal();render();toast("Projet créé")}
+async function controlTransaction(){if(!requireControl())return;const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();const row={id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner"),note:v("fNote")};try{const saved=await cloudInsert("transactions",row);data.transactions.push(saved);addActivity("Tour de contrôle : caisse ajustée · "+label);closeModal();render();toast("Caisse ajustée")}catch(e){showToastError(e.message)}}
+async function controlIdea(){if(!requireControl())return;const i=data.ideas.find(x=>x.id===v("fIdea"));if(!i)return;i.status=v("fStatus");i.responsible=v("fOwner");try{await cloudUpdate("ideas",i.id,i);addActivity("Tour de contrôle : idée mise à jour · "+i.title);closeModal();render();toast("Idée mise à jour")}catch(e){showToastError(e.message)}}
+function controlNotification(){if(!requireControl())return;const title=v("fTitle"),detail=v("fDetail");if(!title||!detail)return required();data.notifications.unshift({id:uid("N"),text:title+" — "+detail,time:now(),read:false,responsible:v("fOwner")});addActivity("Notification envoyée : "+title);closeModal();render();toast("Notification enregistrée")}
+async function controlAssign(){if(!requireControl())return;const [type,id]=v("fTarget").split("|"),owner=v("fOwner");let obj=null,table=null;if(type==="request")obj=data.requests.find(x=>x.id===id),table="requests";if(type==="project")obj=data.projects.find(x=>x.id===id),table="projects";if(type==="idea")obj=data.ideas.find(x=>x.id===id),table="ideas";if(!obj)return;if(type==="request")obj.owner=owner;if(type==="project")obj.owner=owner;if(type==="idea")obj.responsible=owner;try{await cloudUpdate(table,id,obj);addActivity("Tour de contrôle : responsable attribué à "+owner);closeModal();render();toast("Responsable attribué")}catch(e){showToastError(e.message)}}
+async function controlProject(){if(!requireControl())return;const p=data.projects.find(x=>x.id===v("fProject"));if(!p)return;p.progress=Math.max(0,Math.min(100,Number(v("fProgress"))||0));p.budget=Number(v("fAmount"))||0;p.owner=v("fOwner");p.status=p.progress===100?"Terminé":p.progress>0?"En cours":"Planifié";try{await cloudUpdate("projects",p.id,p);addActivity("Tour de contrôle : projet mis à jour · "+p.title);closeModal();render();toast("Projet mis à jour")}catch(e){showToastError(e.message)}}
+async function controlMember(){if(!requireControl())return;const m=data.members.find(x=>String(x.id)===v("fMember"));if(!m)return;m.status=v("fStatus");m.sector=v("fSector");m.looking=v("fLooking");m.offer=v("fOffer");try{await cloudUpdate("members",m.id,m);addActivity("Tour de contrôle : profil membre mis à jour · "+m.name);closeModal();render();toast("Profil mis à jour")}catch(e){showToastError(e.message)}}
+async function controlDashboardSettings(){if(!requireControl())return;data.dashboardSettings={id:1,member_count_display:Number(v("fDisplayedMembers")),balance_display:Number(v("fDisplayedBalance"))};try{await saveDashboardSettings();addActivity("Tour de contrôle : tableau de bord mis à jour");closeModal();render();toast("Tableau de bord mis à jour")}catch(e){showToastError(e.message)}}
+async function submitRequest(){const title=v("fTitle"),detail=v("fDetail");if(!title)return required();const row={id:uid("GM"),title,detail,member:"Elisée Melchi Mabondzo",category:v("fCat"),priority:v("fPriority"),status:"Nouvelle",owner:"Responsable d’organisation",date:new Date().toISOString().slice(0,10)};try{const saved=await cloudInsert("requests",row);data.requests.unshift(saved);addActivity("Nouvelle demande d'aide : "+title);notify("Nouvelle demande d'aide à traiter : "+title);closeModal();render();toast("Demande créée")}catch(e){showToastError(e.message)}}
+async function submitIdea(){const title=v("fTitle"),detail=v("fDetail");if(!title)return required();const row={id:uid("I"),title,detail,category:v("fCat"),author:"Membre",responsible:"Responsable d’organisation",status:"À étudier",date:new Date().toISOString().slice(0,10)};try{const saved=await cloudInsert("ideas",row);data.ideas.unshift(saved);addActivity("Nouvelle idée proposée : "+title);notify("Nouvelle idée : "+title);closeModal();render();toast("Idée envoyée")}catch(e){showToastError(e.message)}}
+async function submitTransaction(){if(!requireControl())return;const label=v("fLabel"),amount=Number(v("fAmount"));if(!label||!amount)return required();const row={id:uid("TX"),date:new Date().toISOString().slice(0,10),label,type:v("fType"),amount,category:v("fCat"),by:v("fOwner")||"Trésorier(e)",note:v("fNote")};try{const saved=await cloudInsert("transactions",row);data.transactions.push(saved);addActivity("Opération financière : "+label);closeModal();render();toast("Opération enregistrée")}catch(e){showToastError(e.message)}}
+async function submitProject(){if(!requireAdmin())return;const title=v("fTitle");if(!title)return required();const row={id:uid("P"),title,description:v("fDetail"),status:"À lancer",progress:0,owner:v("fOwner")||"À désigner",budget:Number(v("fAmount"))||0};try{const saved=await cloudInsert("projects",row);data.projects.push(saved);addActivity("Nouveau projet : "+title);notify("Nouveau projet créé : "+title);closeModal();render();toast("Projet créé")}catch(e){showToastError(e.message)}}
 function submitOpportunity(){const title=v("fTitle");if(!title)return required();data.opportunities.unshift({id:uid("O"),title,company:v("fCompany"),sector:v("fSector"),location:v("fLocation"),skills:v("fSkills"),deadline:v("fDeadline"),status:"À analyser",responsible:"Responsable d’organisation"});addActivity("Opportunité signalée : "+title);notify("Nouvelle opportunité à analyser : "+title);closeModal();render();toast("Opportunité enregistrée")}
 function submitService(){const title=v("fTitle");if(!title)return required();data.services.unshift({id:uid("S"),title,category:v("fCat"),price:Number(v("fAmount"))||0,detail:v("fDetail"),member:"Membre",responsible:"Chargé de communication"});addActivity("Service déclaré : "+title);closeModal();render();toast("Service ajouté")}
 function submitPurchase(){const title=v("fTitle");if(!title)return required();addActivity("Besoin centrale d'achat : "+title+" × "+v("fQty"));notify("Nouveau besoin dans la centrale d'achat : "+title);closeModal();render();toast("Besoin enregistré")}
 function submitInternational(){const title=v("fTitle");if(!title)return required();addActivity("Mission internationale signalée : "+title);notify("Nouvelle mission internationale : "+title);closeModal();render();toast("Mission signalée")}
 function submitVote(){const title=v("fTitle");if(!title)return required();data.votes.unshift({id:uid("V"),title,detail:v("fDetail"),status:"Brouillon",for:0,against:0,abstain:0,deadline:v("fDeadline")});addActivity("Nouveau vote préparé : "+title);closeModal();render();toast("Vote créé")}
-function submitMeeting(){const title=v("fTitle")||"Réunion";if(!v("fDate"))return required();data.meetings.push({id:uid("M"),title,date:v("fDate"),time:v("fTime"),agenda:v("fDetail"),status:"Programmée",responsible:"Secrétaire"});addActivity("Réunion programmée : "+title);notify("Réunion programmée : "+title);closeModal();render();toast("Réunion programmée")}
-function submitMember(){const name=v("fName");if(!name)return required();if(data.members.length>=TOTAL_MEMBERS){toast("Les 81 places sont déjà renseignées");return} data.members.push({id:uid("M"),name,status:v("fStatus"),role:"Membre",city:v("fCity"),sector:v("fSector"),skills:v("fSkills").split(",").map(x=>x.trim()).filter(Boolean),looking:v("fLooking"),offer:v("fOffer"),project:v("fProject")});addActivity("Nouveau membre ajouté : "+name);closeModal();render();toast("Membre ajouté")}
-function importMembers(){
- const text=v("importText");if(!text)return required();
- const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(lines.length<2){toast("Ajoutez une ligne d'en-têtes et au moins une ligne");return}
- const delim=lines[0].includes("\t")?"\t":",";
- const head=lines[0].split(delim).map(x=>x.trim().toLowerCase());
- let count=0;
- lines.slice(1).forEach(line=>{const c=line.split(delim).map(x=>x.trim().replace(/^"|"$/g,""));if(!c[0])return;
-  const get=(...names)=>{const i=head.findIndex(h=>names.includes(h));return i>=0?c[i]||"":""};
-  const name=get("nom","nom complet","name");const existing=data.members.find(m=>m.name.toLowerCase()===name.toLowerCase());
-  const obj={id:existing?.id||uid("M"),name,status:get("statut","status")||"Actif",role:get("rôle","role")||"Membre",city:get("ville","city"),sector:get("secteur","sector"),skills:get("compétences","competences","skills").split(/[;,]/).map(x=>x.trim()).filter(Boolean),looking:get("recherche","ce que je cherche"),offer:get("offre","ce que je peux apporter"),project:get("projet")};
-  if(existing)Object.assign(existing,obj);else data.members.push(obj);count++;
- });
- addActivity(count+" profil(s) importé(s) ou mis à jour");save();closeModal();render();toast(count+" profil(s) importé(s)");
-}
+async function submitMeeting(){if(!requireAdmin())return;const title=v("fTitle")||"Réunion";if(!v("fDate"))return required();const row={id:uid("M"),title,date:v("fDate"),time:v("fTime"),agenda:v("fDetail"),status:"Programmée",responsible:"Secrétaire"};try{const saved=await cloudInsert("meetings",row);data.meetings.push(saved);addActivity("Réunion programmée : "+title);notify("Réunion programmée : "+title);closeModal();render();toast("Réunion programmée")}catch(e){showToastError(e.message)}}
+async function submitMember(){const name=v("fName");if(!name)return required();if(data.members.length>=TOTAL_MEMBERS){toast("Les 81 places sont déjà renseignées");return}const row={id:uid("M"),name,status:v("fStatus"),role:"Membre",city:v("fCity"),sector:v("fSector"),skills:v("fSkills").split(",").map(x=>x.trim()).filter(Boolean),looking:v("fLooking"),offer:v("fOffer"),project:v("fProject")};try{const saved=await cloudInsert("members",row);data.members.push(saved);addActivity("Nouveau membre ajouté : "+name);closeModal();render();toast("Membre ajouté")}catch(e){showToastError(e.message)}}
+async function importMembers(){if(!requireControl())return;const text=v("importText");if(!text)return required();const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(lines.length<2){toast("Ajoutez une ligne d'en-têtes et au moins une ligne");return}const delim=lines[0].includes("\t")?"\t":",";const head=lines[0].split(delim).map(x=>x.trim().toLowerCase());let count=0;try{for(const line of lines.slice(1)){const c=line.split(delim).map(x=>x.trim().replace(/^"|"$/g,""));if(!c[0])continue;const get=(...names)=>{const i=head.findIndex(h=>names.includes(h));return i>=0?c[i]||"":""};const name=get("nom","nom complet","name");if(!name)continue;const existing=data.members.find(m=>m.name.toLowerCase()===name.toLowerCase());const obj={id:existing?.id||uid("M"),name,status:get("statut","status")||"Actif",role:get("rôle","role")||"Membre",city:get("ville","city"),sector:get("secteur","sector"),skills:get("compétences","competences","skills").split(/[;,]/).map(x=>x.trim()).filter(Boolean),looking:get("recherche","ce que je cherche"),offer:get("offre","ce que je peux apporter"),project:get("projet")};if(existing){const saved=await cloudUpdate("members",existing.id,obj);Object.assign(existing,saved)}else{const saved=await cloudInsert("members",obj);data.members.push(saved)}count++}addActivity(count+" profil(s) importé(s) ou mis à jour");save();closeModal();render();toast(count+" profil(s) importé(s)")}catch(e){showToastError(e.message)}}
 function submitPost(){const title=v("fTitle");if(!title)return required();addActivity("Publication : "+title);notify("Nouvelle publication : "+title);closeModal();render();toast("Publication enregistrée")}
 function v(id){return document.getElementById(id)?.value?.trim()||""}
 function required(){toast("Veuillez remplir les champs obligatoires")}
-function showHelp(){openModal("Aide","help");document.getElementById("modalBody").innerHTML=`<div class="info">Cette V2 utilise Supabase Auth, PostgreSQL et Realtime. Les cinq modules centraux (membres, caisse, projets, demandes, idées) sont synchronisés avec la base cloud. Les autres modules de la maquette restent disponibles côté interface et pourront être migrés ensuite.</div><h3 style="margin-top:18px">Raccourcis</h3><ul class="small" style="line-height:1.9"><li>Utilisez la recherche globale pour trouver rapidement des membres, projets, demandes ou idées.</li><li>Le module Import accepte CSV/TSV pour charger les profils du Google Sheet.</li><li>Exportez régulièrement vos données depuis Paramètres.</li></ul>`}
+function showHelp(){
+ openModal("Aide","help");
+ document.getElementById("modalBody").innerHTML=`<div class="info"><b>Bienvenue dans Génération Miracle.</b><br>Cette rubrique explique comment utiliser la plateforme.</div>
+ <div class="section-head"><h3>Questions fréquentes</h3></div>
+ <div class="list-item"><b>❓ Comment rejoindre la communauté ?</b><p class="small">Utilisez « Je m'ajoute » dans Membres. Votre profil est enregistré dans la base cloud.</p></div>
+ <div class="list-item"><b>❓ Comment proposer une idée ?</b><p class="small">Ouvrez « Boîte à idées » puis « Proposer une idée ». Tous les membres peuvent soumettre une proposition.</p></div>
+ <div class="list-item"><b>❓ Qui peut modifier une idée ?</b><p class="small">Les membres peuvent consulter les détails. Seule la Tour de contrôle peut modifier le statut ou le responsable.</p></div>
+ <div class="list-item"><b>❓ Comment demander de l'aide ?</b><p class="small">Créez une demande avec une description et une priorité. Le pilotage assure ensuite son traitement.</p></div>
+ <div class="list-item"><b>❓ Qui peut modifier une demande ?</b><p class="small">Les membres peuvent voir les détails. Le statut et le responsable sont modifiables uniquement depuis la Tour de contrôle.</p></div>
+ <div class="list-item"><b>❓ Comment fonctionne la caisse ?</b><p class="small">Le livre est consultable par les membres. L'ajout et la suppression des opérations sont réservés au pilotage.</p></div>
+ <div class="list-item"><b>❓ Qui peut créer un projet ?</b><p class="small">La création et la modification d'un projet nécessitent le code administrateur.</p></div>
+ <div class="list-item"><b>❓ Qui peut programmer une réunion ?</b><p class="small">La programmation d'une réunion nécessite le code administrateur.</p></div>
+ <div class="list-item"><b>❓ Pourquoi certaines fonctions affichent un cadenas ?</b><p class="small">Les cadenas signalent une fonction réservée au pilotage ou à l'administration.</p></div>
+ <div class="list-item"><b>❓ Les données sont-elles en temps réel ?</b><p class="small">Les membres, demandes, idées, projets, caisse et réunions utilisent Supabase et Realtime.</p></div>
+ <div class="list-item"><b>❓ Comment accéder à la Tour de contrôle ?</b><p class="small">Ouvrez « Tour de contrôle » et saisissez le code de pilotage. La session est temporaire.</p></div>`;
+}
 
 /* ---------- IMPORT / EXPORT / RESET ---------- */
 function downloadCSV(rows,name){const csv=rows.map(r=>r.map(x=>`"${String(x??"").replace(/"/g,'""')}"`).join(",")).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
@@ -740,41 +776,63 @@ function exportBackup(){const a=document.createElement("a");a.href=URL.createObj
 async function resetDemo(){if(confirm("Recharger les données depuis Supabase ?")){try{await loadAllCloudData();render();toast("Données Supabase rechargées")}catch(e){showToastError(e.message)}}}
 
 
-/* ---------- TOUR DE CONTRÔLE ---------- */
-function isControlAuthenticated(){return !!currentUser}
+/* ---------- ACCÈS PROTÉGÉS ---------- */
+async function unlockAccess(level,password){
+ try{
+  const {data:ok,error}=await supabaseClient.rpc("gm_unlock",{p_level:level,p_password:password});
+  if(error)throw error;if(!ok)throw new Error("Code incorrect.");
+  if(level==="control")controlUnlocked=true;if(level==="admin")adminUnlocked=true;
+  toast(level==="admin"?"Accès administrateur activé":"Accès de pilotage activé");return true;
+ }catch(e){toast("Accès refusé : "+(e.message||"code incorrect"));return false}
+}
+async function lockAccess(level){try{await supabaseClient.rpc("gm_lock",{p_level:level})}catch(e){}if(level==="control")controlUnlocked=false;if(level==="admin")adminUnlocked=false}
+function isControlAuthenticated(){return controlUnlocked}
+function isAdminAuthenticated(){return adminUnlocked}
+function openControlLogin(afterPage="control"){
+ document.getElementById("modalTitle").textContent="Accès protégé";
+ document.getElementById("modalBody").innerHTML=`<div class="form"><div class="control-lock"><b>🔒 Tour de contrôle</b><br>Le code est vérifié côté Supabase.</div><label>Code de pilotage</label><input id="controlPassword" type="password" autocomplete="off" placeholder="Code d'accès"><button class="btn btn-primary" onclick="checkControlPassword('${afterPage}')">Déverrouiller</button></div>`;
+ document.getElementById("modal").classList.add("open");
+}
+async function checkControlPassword(afterPage="control"){const ok=await unlockAccess("control",v("controlPassword"));if(!ok)return;closeModal();go(afterPage)}
+function openAdminAction(type){
+ if(adminUnlocked){openModal(type==="project"?"Nouveau projet":"Programmer une réunion",type);return}
+ pendingAdminAction=type;
+ document.getElementById("modalTitle").textContent="Accès administrateur";
+ document.getElementById("modalBody").innerHTML=`<div class="form"><div class="control-lock"><b>🔐 Administration</b><br>La création de projets et la programmation de réunions nécessitent le code administrateur.</div><label>Code administrateur</label><input id="adminPassword" type="password" autocomplete="off" placeholder="Code d'administration"><button class="btn btn-primary" onclick="checkAdminPassword()">Déverrouiller</button></div>`;
+ document.getElementById("modal").classList.add("open");
+}
+async function checkAdminPassword(){const ok=await unlockAccess("admin",v("adminPassword"));if(!ok)return;const action=pendingAdminAction;pendingAdminAction=null;closeModal();if(action==="project")openModal("Nouveau projet","project");if(action==="meeting")openModal("Programmer une réunion","meeting")}
+function logoutControl(){lockAccess("control");lockAccess("admin");go("dashboard");toast("Zones protégées verrouillées")}
+function requireControl(){if(!isControlAuthenticated()){openControlLogin(page);return false}return true}
+function requireAdmin(){if(!isAdminAuthenticated()){openAdminAction(page==="meetings"?"meeting":"project");return false}return true}
+
 function controlPage(){
  if(!isControlAuthenticated()){
-  return pageHead("Tour de contrôle","Zone réservée au pilotage de la plateforme.",
-   `<button class="btn btn-primary" onclick="openControlLogin()">🔐 Se connecter</button>`)
-   +`<div class="card" style="max-width:720px"><div class="control-lock"><b>Accès protégé.</b><br>Cette zone permet d'ajuster les données, de valider les idées, d'envoyer des notifications et d'attribuer les responsables.</div><div style="margin-top:16px">${empty("🔐","Connectez-vous avec le mot de passe de pilotage.")}</div></div>`;
+  return pageHead("Tour de contrôle","Zone réservée au pilotage de la plateforme.",`<button class="btn btn-primary" onclick="openControlLogin('control')">🔐 Déverrouiller</button>`)
+  +`<div class="card" style="max-width:720px"><div class="control-lock"><b>Accès protégé.</b><br>Le code de pilotage est vérifié par Supabase. Les membres ne peuvent pas modifier les données sensibles.</div><div style="margin-top:16px">${empty("🔐","Saisissez le code de pilotage pour continuer.")}</div></div>`;
  }
  const balance=data.transactions.reduce((s,t)=>s+(t.type==="Entrée"?Number(t.amount):-Number(t.amount)),0);
- return pageHead("Tour de contrôle","Pilotage réservé aux personnes autorisées.",
- `<span class="badge">🔓 Session de contrôle active</span><button class="btn btn-light" onclick="logoutControl()">Déconnexion</button>`)
- +`<div class="control-lock"><b>Responsabilité du pilotage</b> · Toute modification importante est enregistrée dans le journal d'activité. Le tour de contrôle peut modifier les montants, statuts, responsables, idées, notifications et données opérationnelles.</div>
- <div class="grid g4" style="margin-top:16px">${stat("Membres",`${data.members.length}/${TOTAL_MEMBERS}`,"inscriptions")}${stat("Solde",money(balance),"ajustable par le Trésorier(e)")}${stat("Idées à étudier",data.ideas.filter(i=>i.status==="À étudier").length,"validation possible")}${stat("Notifications non lues",data.notifications.filter(n=>!n.read).length,"diffusion")}</div>
- <div class="section-head"><h2>Commandes de pilotage</h2></div>
- <div class="control-grid">
-  <button class="control-action" onclick="openModal('Ajuster la caisse','controlTransaction')"><b>💰 Ajuster la caisse</b><span>Ajouter une entrée ou une sortie avec responsable et justificatif.</span></button>
-  <button class="control-action" onclick="openModal('Valider une idée','controlIdea')"><b>💡 Valider / affecter une idée</b><span>Changer le statut et désigner son responsable.</span></button>
-  <button class="control-action" onclick="openModal('Envoyer une notification','controlNotification')"><b>🔔 Envoyer une notification</b><span>Créer une alerte visible par les membres.</span></button>
-  <button class="control-action" onclick="openModal('Attribuer un responsable','controlAssign')"><b>👤 Attribuer un responsable</b><span>Responsable d'une demande, projet, idée ou opportunité.</span></button>
-  <button class="control-action" onclick="openModal('Mettre à jour un projet','controlProject')"><b>🚀 Mettre à jour un projet</b><span>Progression, statut, budget et responsable.</span></button>
-  <button class="control-action" onclick="openModal('Gérer les membres','controlMembers')"><b>👥 Gérer les profils</b><span>Corriger un statut, secteur ou informations professionnelles.</span></button>
-  <button class="control-action" onclick="openModal('Créer une décision','vote')"><b>🗳️ Nouvelle décision</b><span>Préparer une décision à soumettre au vote.</span></button>
-  <button class="control-action" onclick="exportBackup()"><b>📦 Sauvegarder</b><span>Exporter l'état complet de la plateforme en JSON.</span></button>
+ return pageHead("Tour de contrôle","Pilotage réservé aux personnes autorisées.",`<span class="badge">🔓 Session active</span><button class="btn btn-light" onclick="logoutControl()">Verrouiller</button>`)
+ +`<div class="control-lock"><b>Responsabilité du pilotage</b> · Les modifications importantes sont réservées à cette zone.</div>
+ <div class="grid g4" style="margin-top:16px">${stat("Membres",`${data.members.length}/${TOTAL_MEMBERS}`,"inscriptions")}${stat("Solde",money(balance),"livre réel")}${stat("Idées à étudier",data.ideas.filter(i=>i.status==="À étudier").length,"validation possible")}${stat("Demandes",data.requests.length,"consultation")}</div>
+ <div class="section-head"><h2>Commandes de pilotage</h2></div><div class="control-grid">
+ <button class="control-action" onclick="openModal('Ajuster la caisse','controlTransaction')"><b>💰 Ajuster la caisse</b><span>Ajouter une entrée ou une sortie.</span></button>
+ <button class="control-action" onclick="openModal('Valider une idée','controlIdea')"><b>💡 Valider / affecter une idée</b><span>Changer le statut et désigner son responsable.</span></button>
+ <button class="control-action" onclick="openModal('Envoyer une notification','controlNotification')"><b>🔔 Envoyer une notification</b><span>Créer une alerte.</span></button>
+ <button class="control-action" onclick="openModal('Attribuer un responsable','controlAssign')"><b>👤 Attribuer un responsable</b><span>Demande, projet ou idée.</span></button>
+ <button class="control-action" onclick="openModal('Mettre à jour un projet','controlProject')"><b>🚀 Mettre à jour un projet</b><span>Progression, budget et responsable.</span></button>
+ <button class="control-action" onclick="openModal('Gérer les membres','controlMembers')"><b>👥 Gérer les profils</b><span>Corriger les informations.</span></button>
+ <button class="control-action" onclick="openControlLogin('settings')"><b>⚙ Paramètres protégés</b><span>Ouvrir la configuration.</span></button>
+ <button class="control-action" onclick="openAdminAction('project')"><b>🚀 Nouveau projet</b><span>Code Admin_gm.</span></button>
+ <button class="control-action" onclick="openAdminAction('meeting')"><b>◷ Programmer une réunion</b><span>Code Admin_gm.</span></button>
+ <button class="control-action" onclick="openModal('Modifier le tableau de bord','dashboardSettings')"><b>📊 Modifier le tableau de bord</b><span>Nombre de membres et solde affiché.</span></button>
+ <button class="control-action" onclick="exportBackup()"><b>📦 Sauvegarder</b><span>Exporter l'état local.</span></button>
  </div>
- <div class="section-head"><h2>Points nécessitant une action</h2></div>
- <div class="grid g2">
-  <div class="card"><h3>Idées en attente</h3>${data.ideas.filter(i=>i.status==="À étudier").map(i=>`<div class="list-item"><div class="split"><b>${esc(i.title)}</b><span class="badge gold">À étudier</span></div><div class="muted small">${esc(i.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(i.responsible||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune idée en attente.</div>`}</div>
-  <div class="card"><h3>Demandes urgentes</h3>${data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").map(r=>`<div class="list-item"><div class="split"><b>${esc(r.title)}</b>${badge(r.priority)}</div><div class="muted small">${esc(r.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(r.owner||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune demande urgente.</div>`}</div>
+ <div class="section-head"><h2>Points nécessitant une action</h2></div><div class="grid g2">
+ <div class="card"><h3>Idées en attente</h3>${data.ideas.filter(i=>i.status==="À étudier").map(i=>`<div class="list-item"><div class="split"><b>${esc(i.title)}</b><span class="badge gold">À étudier</span></div><div class="muted small">${esc(i.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(i.responsible||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune idée en attente.</div>`}</div>
+ <div class="card"><h3>Demandes urgentes</h3>${data.requests.filter(r=>r.priority==="Urgente"&&r.status!=="Clôturée").map(r=>`<div class="list-item"><div class="split"><b>${esc(r.title)}</b>${badge(r.priority)}</div><div class="muted small">${esc(r.detail)}</div><div class="responsible" style="margin-top:8px">👤 ${esc(r.owner||"À désigner")}</div></div>`).join("")||`<div class="muted small">Aucune demande urgente.</div>`}</div>
  </div>`;
 }
-function openControlLogin(){setAuthMode("login");location.reload()}
-function checkControlPassword(){return true}
-function logoutControl(){signOut()}
-function requireControl(){if(!isControlAuthenticated()){openControlLogin();return false}return true}
-
 /* ---------- RENDER ---------- */
 function render(){
  const routes={dashboard,members:membersPage,finance,requests,ideas,projects,jobs,services,purchases,international,votes,meetings,activity,notifications,settings,control:controlPage};
