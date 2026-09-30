@@ -3,6 +3,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#126b3b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Génération Miracle">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./assets/icon-192.png">
+<link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <title>Génération Miracle — Le Pacte Miracle</title>
 <style>
@@ -23,7 +30,7 @@ a{color:inherit}
 .app{display:grid;grid-template-columns:270px 1fr;min-height:100vh}
 .sidebar{background:linear-gradient(180deg,#0b4f2a,#126b3b);color:#fff;position:sticky;top:0;height:100vh;padding:18px 14px;overflow:auto;z-index:20}
 .brand{display:flex;align-items:center;gap:11px;padding:8px 8px 20px;border-bottom:1px solid rgba(255,255,255,.16)}
-.logo{height:46px;width:46px;border-radius:14px;background:#fff;color:var(--green);display:grid;place-items:center;font-weight:950;letter-spacing:-1px}
+.logo{height:46px;width:46px;border-radius:14px;background:#fff;color:var(--green);display:grid;place-items:center;font-weight:950;letter-spacing:-1px;overflow:hidden}.logo img{width:100%;height:100%;object-fit:cover}
 .brand strong{font-size:14px;display:block;line-height:1.1}.brand small{opacity:.7;font-size:10px}
 .nav{padding-top:15px}.nav-label{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.52);padding:14px 10px 6px}
 .nav button{width:100%;border:0;background:transparent;color:#e7f4eb;border-radius:10px;text-align:left;padding:10px 11px;margin:2px 0;font-weight:650;font-size:13px}
@@ -69,7 +76,7 @@ a{color:inherit}
 .mobile-only{display:none}
 .auth-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0b4f2a,#126b3b);display:grid;place-items:center;padding:20px;z-index:200}
 .auth-card{width:min(460px,100%);background:#fff;border-radius:22px;padding:28px;box-shadow:0 30px 90px rgba(0,0,0,.28)}
-.auth-logo{width:58px;height:58px;border-radius:17px;background:#eaf5ee;color:#126b3b;display:grid;place-items:center;font-weight:950;font-size:20px;margin-bottom:14px}
+.auth-logo{width:72px;height:72px;border-radius:20px;background:#fff;color:#126b3b;display:grid;place-items:center;font-weight:950;font-size:20px;margin-bottom:14px;overflow:hidden;border:1px solid #e0e7e2}.auth-logo img{width:100%;height:100%;object-fit:cover}
 .auth-card h1{margin:0 0 6px}.auth-card p{color:#69756e;line-height:1.5}.auth-tabs{display:flex;gap:7px;margin:18px 0 14px}.auth-tabs button{flex:1;border:1px solid #e0e7e2;background:#f6f8f6;border-radius:10px;padding:10px;font-weight:750}.auth-tabs button.active{background:#126b3b;color:#fff;border-color:#126b3b}.auth-error{background:#fff0f0;color:#a02f2f;border:1px solid #f0c8c8;padding:10px;border-radius:10px;font-size:12px;margin:10px 0;display:none}
 .cloud-status{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;padding:5px 8px;border-radius:999px;background:#eaf5ee;color:#126b3b}.cloud-status.off{background:#fff4df;color:#8a5200}
 @media(max-width:1150px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}.wide{grid-template-columns:1fr}.kanban{grid-template-columns:repeat(4,240px)}}
@@ -80,7 +87,7 @@ a{color:inherit}
 <body>
 <div id="authOverlay" class="auth-overlay">
   <div class="auth-card">
-    <div class="auth-logo">GM</div>
+    <div class="auth-logo"><img src="./assets/icon-192.png" alt="Logo Génération Miracle"></div>
     <h1>Génération Miracle</h1>
     <p>Bienvenue sur l'espace collaboratif. Les données de la plateforme sont désormais centralisées dans Supabase.</p>
     <div class="auth-tabs"><button id="tabLogin" class="active" onclick="setAuthMode('login')">Connexion</button><button id="tabSignup" onclick="setAuthMode('signup')">Créer un compte</button></div>
@@ -97,7 +104,7 @@ a{color:inherit}
 <div class="app">
 <aside id="sidebar" class="sidebar">
   <div class="brand">
-    <div class="logo">GM</div>
+    <div class="logo"><img src="./assets/icon-192.png" alt="Logo Génération Miracle"></div>
     <div><strong>GÉNÉRATION<br>MIRACLE</strong><small>Le Pacte Miracle · 2026</small></div>
   </div>
   <nav class="nav">
@@ -130,6 +137,7 @@ a{color:inherit}
   <input id="globalSearch" class="global-search" placeholder="Rechercher un membre, projet, demande, service…">
   <div class="top-actions">
     <span id="cloudStatus" class="cloud-status">● Supabase</span>
+    <button id="installAppBtn" class="icon-btn" title="Installer l’application" onclick="installApp()" style="display:none">📲 Installer</button>
     <button class="icon-btn" title="Notifications" onclick="go('notifications')">🔔 <span id="topNotif">0</span></button>
     <button class="icon-btn" title="Aide" onclick="showHelp()">?</button>
     <div class="user"><div><b id="userName">Génération Miracle</b><small id="userEmail" class="muted"> · Espace membre</small></div><div class="avatar" id="userAvatar">GM</div></div><button class="icon-btn" title="Déconnexion" onclick="signOut()">↪</button>
@@ -983,6 +991,30 @@ function render(){
 function updateNotif(){const n=data.notifications.filter(x=>!x.read).length;document.getElementById("topNotif").textContent=n;document.getElementById("notifCount").textContent=n?`(${n})`:""}
 document.getElementById("globalSearch").addEventListener("keydown",e=>{if(e.key==="Enter"){const q=e.target.value.trim();if(q.length>1){page="search";document.getElementById("content").innerHTML=searchPage(q);document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"))}}});
 document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.page)));
+
+/* ---------- INSTALLATION PWA ---------- */
+let deferredInstallPrompt=null;
+function isStandaloneMode(){return window.matchMedia && window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone===true}
+function isIOSDevice(){return /iphone|ipad|ipod/i.test(navigator.userAgent)}
+function refreshInstallButton(){
+ const b=document.getElementById("installAppBtn");if(!b)return;
+ if(isStandaloneMode()){b.style.display="none";return}
+ b.style.display="inline-flex";
+ b.textContent=isIOSDevice()?"📲 Ajouter": "📲 Installer";
+}
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e;refreshInstallButton()});
+window.addEventListener("appinstalled",()=>{deferredInstallPrompt=null;refreshInstallButton();toast("Génération Miracle est installée sur cet appareil")});
+async function installApp(){
+ if(isStandaloneMode())return;
+ if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null;refreshInstallButton();return}
+ if(isIOSDevice()){
+  alert("Pour installer Génération Miracle sur iPhone/iPad : ouvrez le menu Partager de Safari, puis choisissez « Sur l’écran d’accueil ». ");
+  return;
+ }
+ alert("Si votre navigateur propose « Installer l’application » ou « Ajouter à l’écran d’accueil », choisissez cette option.");
+}
+refreshInstallButton();
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}
 
 /* keyboard shortcut */
 document.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();document.getElementById("globalSearch").focus()}});
