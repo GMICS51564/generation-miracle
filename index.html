@@ -509,7 +509,7 @@ function requests(){
  <div id="requestList">${data.requests.length?data.requests.map(requestCard).join(""):empty("✓","Aucune demande enregistrée.")}</div>`;
 }
 function requestCard(r){
- return `<div class="card" style="margin-bottom:10px"><div class="split"><div><b>${esc(r.id)} · ${esc(r.title)}</b><div class="muted small">${esc(r.member)} · ${esc(r.category)} · ${esc(r.date)}</div></div><div>${badge(r.priority)} ${badge(r.status)}</div></div><p class="small">${esc(r.detail)}</p><div class="split"><span class="muted small">Responsable : <b>${esc(r.owner||"À désigner")}</b></span><div class="actions"><button class="btn btn-light btn-small" onclick="openRequest('${r.id}')">Détails</button></div></div></div>`;
+ return `<div class="card" style="margin-bottom:10px"><div class="split"><div><b>${esc(r.id)} · ${esc(r.title)}</b><div class="muted small">${esc(r.member)} · ${esc(r.category)} · ${esc(r.date)}</div></div><div>${badge(r.priority)} ${badge(r.status)}</div></div><p class="small">${esc(r.detail)}</p><div class="split"><span class="muted small">Responsable : <b>${esc(r.owner||"À désigner")}</b></span><div class="actions"><button class="btn btn-light btn-small" onclick="openRequest('${r.id}')">Détails</button>${controlUnlocked?`<button class="btn btn-danger btn-small" onclick="deleteRequest('${r.id}')">Supprimer</button>`:""}</div></div></div>`;
 }
 function renderRequests(){
  const f=document.getElementById("reqFilter")?.value||"",p=document.getElementById("reqPriority")?.value||"";
@@ -537,17 +537,31 @@ async function saveRequest(id){
  catch(e){showToastError(e.message)}
 }
 
+async function deleteRequest(id){
+ if(!requireControl())return;
+ const r=data.requests.find(x=>String(x.id)===String(id));if(!r)return;
+ if(!confirm(`Supprimer la demande « ${r.title} » ?`))return;
+ try{
+  await cloudDelete("requests",id);
+  data.requests=data.requests.filter(x=>String(x.id)!==String(id));
+  addActivity(`Tour de contrôle : demande supprimée · ${r.title}`);
+  closeModal();
+  render();
+  toast("Demande supprimée");
+ }catch(e){showToastError(e.message)}
+}
+
 /* ---------- IDEAS ---------- */
 function ideas(){
  return pageHead("Boîte à idées","Proposer, discuter, étudier et transformer les idées en actions.",
  `<button class="btn btn-gold" onclick="openModal('Proposer une idée','idea')">+ Proposer une idée</button>`)
  +`<div class="grid wide"><div class="card"><h3>Cycle d'une idée</h3><div class="timeline"><div class="timeline-item"><b>1 · Proposition</b><div class="muted small">Un membre décrit l'idée et le problème à résoudre.</div></div><div class="timeline-item"><b>2 · Étude</b><div class="muted small">Le pilotage étudie la faisabilité et les ressources.</div></div><div class="timeline-item"><b>3 · Décision</b><div class="muted small">Le statut est modifié uniquement par la Tour de contrôle.</div></div><div class="timeline-item"><b>4 · Responsable + échéance</b><div class="muted small">Une décision opérationnelle reçoit un responsable.</div></div><div class="timeline-item"><b>5 · Exécution</b><div class="muted small">Suivi jusqu'à la clôture.</div></div></div></div>
- <div class="card"><div class="section-head" style="margin-top:0"><h2>Idées de la communauté</h2><span class="muted small">${data.ideas.length} idée(s)</span></div>${data.ideas.map(i=>`<div class="list-item"><div class="split"><div><b>${esc(i.title)}</b><div class="muted small">${esc(i.author)} · ${esc(i.category)} · ${esc(i.date)}</div></div>${badge(i.status)}</div><p class="small">${esc(i.detail)}</p><div class="responsible">👤 Responsable : <b>${esc(i.responsible||"À désigner")}</b></div><div style="margin-top:9px"><button class="btn btn-light btn-small" onclick="openIdea('${i.id}')">Détails</button></div></div>`).join("")||empty("✦","Aucune idée pour le moment.")}</div></div>`;
+ <div class="card"><div class="section-head" style="margin-top:0"><h2>Idées de la communauté</h2><span class="muted small">${data.ideas.length} idée(s)</span></div>${data.ideas.map(i=>`<div class="list-item"><div class="split"><div><b>${esc(i.title)}</b><div class="muted small">${esc(i.author)} · ${esc(i.category)} · ${esc(i.date)}</div></div>${badge(i.status)}</div><p class="small">${esc(i.detail)}</p><div class="responsible">👤 Responsable : <b>${esc(i.responsible||"À désigner")}</b></div><div style="margin-top:9px"><button class="btn btn-light btn-small" onclick="openIdea('${i.id}')">Détails</button>${controlUnlocked?` <button class="btn btn-danger btn-small" onclick="deleteIdea('${i.id}')">Supprimer</button>`:""}</div></div>`).join("")||empty("✦","Aucune idée pour le moment.")}</div></div>`;
 }
 function openIdea(id){
  const i=data.ideas.find(x=>x.id===id);if(!i)return;
  document.getElementById("modalTitle").textContent=`Idée · ${i.title}`;
- document.getElementById("modalBody").innerHTML=`<div class="card"><h3>${esc(i.title)}</h3><p>${esc(i.detail)}</p><p class="small"><b>Auteur :</b> ${esc(i.author)}<br><b>Catégorie :</b> ${esc(i.category)}<br><b>Statut :</b> ${esc(i.status)}<br><b>Responsable :</b> ${esc(i.responsible||"À désigner")}<br><b>Date :</b> ${esc(i.date)}</p></div>${controlUnlocked?`<div class="form" style="margin-top:12px"><label>Statut</label><select id="ideaEditStatus"><option>À étudier</option><option>En discussion</option><option>Validée</option><option>En cours</option><option>Terminée</option><option>Refusée</option></select><label>Responsable</label><select id="ideaEditOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><button class="btn btn-primary" onclick="saveIdea('${i.id}')">Enregistrer</button></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Seule la Tour de contrôle peut faire avancer cette idée.</div>`}`;
+ document.getElementById("modalBody").innerHTML=`<div class="card"><h3>${esc(i.title)}</h3><p>${esc(i.detail)}</p><p class="small"><b>Auteur :</b> ${esc(i.author)}<br><b>Catégorie :</b> ${esc(i.category)}<br><b>Statut :</b> ${esc(i.status)}<br><b>Responsable :</b> ${esc(i.responsible||"À désigner")}<br><b>Date :</b> ${esc(i.date)}</p></div>${controlUnlocked?`<div class="form" style="margin-top:12px"><label>Statut</label><select id="ideaEditStatus"><option>À étudier</option><option>En discussion</option><option>Validée</option><option>En cours</option><option>Terminée</option><option>Refusée</option></select><label>Responsable</label><select id="ideaEditOwner">${LEADERSHIP_ROLES.map(r=>`<option>${r}</option>`).join("")}</select><div class="actions"><button class="btn btn-primary" onclick="saveIdea('${i.id}')">Enregistrer</button><button class="btn btn-danger" onclick="deleteIdea('${i.id}')">Supprimer</button></div></div>`:`<div class="info" style="margin-top:12px">🔒 Lecture seule. Seule la Tour de contrôle peut faire avancer cette idée.</div>`}`;
  if(controlUnlocked){document.getElementById("ideaEditStatus").value=i.status;document.getElementById("ideaEditOwner").value=i.responsible||LEADERSHIP_ROLES[0];}
  document.getElementById("modal").classList.add("open");
 }
@@ -564,6 +578,20 @@ async function saveIdea(id){
  i.status=document.getElementById("ideaEditStatus").value;i.responsible=document.getElementById("ideaEditOwner").value;
  try{await cloudUpdate("ideas",id,i);addActivity(`Idée ${i.id} mise à jour`);notify(`Mise à jour d'une idée : ${i.title}`);closeModal();render();toast("Idée mise à jour")}
  catch(e){showToastError(e.message)}
+}
+
+async function deleteIdea(id){
+ if(!requireControl())return;
+ const i=data.ideas.find(x=>String(x.id)===String(id));if(!i)return;
+ if(!confirm(`Supprimer l’idée « ${i.title} » ?`))return;
+ try{
+  await cloudDelete("ideas",id);
+  data.ideas=data.ideas.filter(x=>String(x.id)!==String(id));
+  addActivity(`Tour de contrôle : idée supprimée · ${i.title}`);
+  closeModal();
+  render();
+  toast("Idée supprimée");
+ }catch(e){showToastError(e.message)}
 }
 
 /* ---------- PROJECTS ---------- */
@@ -638,7 +666,7 @@ function votes(){
  return pageHead("Votes & décisions","Consigner les décisions, vérifier le quorum, voter et conserver les résultats.",
  `<button class="btn btn-primary" onclick="openModal('Nouvelle décision','vote')">+ Soumettre au vote</button>`)
  +`<div class="grid g3"><div class="module"><h3>Décisions courantes</h3><p>Majorité simple.</p><span class="badge">Gouvernance</span></div><div class="module"><h3>Décisions importantes</h3><p>Majorité des 2/3 selon la charte.</p><span class="badge gold">2/3</span></div><div class="module"><h3>Quorum</h3><p>Au moins la moitié des membres actifs présents ou représentés.</p><span class="badge blue">Quorum</span></div></div>
- <div class="section-head"><h2>Décisions</h2></div><div class="grid g2">${data.votes.map(v=>`<div class="card"><div class="split"><b>${esc(v.id)}</b>${badge(v.status)}</div><h3 style="margin-top:9px">${esc(v.title)}</h3><p class="small">${esc(v.detail)}</p><div class="grid g3 small"><div><b>${v.for}</b><br><span class="muted">Pour</span></div><div><b>${v.against}</b><br><span class="muted">Contre</span></div><div><b>${v.abstain}</b><br><span class="muted">Abst.</span></div></div><div class="split small" style="margin-top:13px"><span class="muted">Échéance : ${esc(v.deadline||"—")}</span><span class="responsible">👤 ${esc(v.responsible||"Secrétaire")}</span><button class="btn btn-light btn-small" onclick="vote('${v.id}')">Voter</button></div></div>`).join("")||empty("☑","Aucune décision.")}</div>`;
+ <div class="section-head"><h2>Décisions</h2></div><div class="grid g2">${data.votes.map(v=>`<div class="card"><div class="split"><b>${esc(v.id)}</b>${badge(v.status)}</div><h3 style="margin-top:9px">${esc(v.title)}</h3><p class="small">${esc(v.detail)}</p><div class="grid g3 small"><div><b>${v.for}</b><br><span class="muted">Pour</span></div><div><b>${v.against}</b><br><span class="muted">Contre</span></div><div><b>${v.abstain}</b><br><span class="muted">Abst.</span></div></div><div class="split small" style="margin-top:13px"><span class="muted">Échéance : ${esc(v.deadline||"—")}</span><span class="responsible">👤 ${esc(v.responsible||"Secrétaire")}</span><button class="btn btn-light btn-small" onclick="vote('${v.id}')">Voter</button>${controlUnlocked?`<button class="btn btn-danger btn-small" onclick="deleteVote('${v.id}')">Supprimer</button>`:""}</div></div>`).join("")||empty("☑","Aucune décision.")}</div>`;
 }
 function vote(id){
  const v=data.votes.find(x=>x.id===id);if(!v)return;
@@ -648,6 +676,17 @@ function vote(id){
  document.getElementById("modal").classList.add("open");
 }
 function castVote(id,type){const v=data.votes.find(x=>x.id===id);if(!v)return;v[type]++;v.status="Ouvert";addActivity(`Vote enregistré sur ${v.id}`);closeModal();render();toast("Vote enregistré dans le prototype")}
+function deleteVote(id){
+ if(!requireControl())return;
+ const v=data.votes.find(x=>String(x.id)===String(id));if(!v)return;
+ if(!confirm(`Supprimer le vote « ${v.title} » ?`))return;
+ data.votes=data.votes.filter(x=>String(x.id)!==String(id));
+ addActivity(`Tour de contrôle : vote supprimé · ${v.title}`);
+ closeModal();
+ save();
+ render();
+ toast("Vote supprimé");
+}
 
 /* ---------- MEETINGS ---------- */
 function meetings(){
@@ -675,11 +714,11 @@ function clearActivity(){if(confirm("Effacer le journal local ?")){data.activity
 function settings(){
  if(!controlUnlocked){
   return pageHead("Paramètres","Configuration protégée de la plateforme.",`<span class="badge gray">🔒 Verrouillé</span>`)
-  +`<div class="card" style="max-width:760px"><div class="control-lock"><b>🔒 Paramètres protégés</b><br>Les données de configuration sont en lecture seule. Toute modification nécessite le code de pilotage.</div><div class="section-head"><h2>Déverrouillage</h2></div><button class="btn btn-primary" onclick="openControlLogin('settings')">Déverrouiller les paramètres</button><div class="info" style="margin-top:14px">Le code est vérifié par Supabase et n'est pas stocké dans le JavaScript public.</div></div>`;
+  +`<div class="card" style="max-width:760px"><div class="control-lock"><b>🔒 Paramètres protégés</b><br>Les données de configuration sont en lecture seule. Toute modification nécessite le code de pilotage.</div><div class="section-head"><h2>Déverrouillage</h2></div><button class="btn btn-primary" onclick="go('settings')">Déverrouiller les paramètres</button><div class="info" style="margin-top:14px">Le code est vérifié par Supabase et n'est pas stocké dans le JavaScript public.</div></div>`;
  }
  return pageHead("Paramètres","Configuration de la plateforme — session de pilotage active.",`<button class="btn btn-light" onclick="exportBackup()">Exporter mes données</button><button class="btn btn-light" onclick="logoutControl()">🔒 Verrouiller</button>`)
  +`<div class="grid g2"><div class="card"><h3>Identité de la communauté</h3><div class="form"><label>Nom</label><input value="Génération Miracle" readonly><label>Devise</label><input value="FCFA" readonly><label>Président</label><input value="Elisée Melchi Mabondzo" readonly><div class="info">Ces informations sont figées dans cette version.</div></div></div>
- <div class="card"><h3>Tour de contrôle</h3><p class="small">Session de pilotage active. Les modifications sensibles restent soumises aux politiques Supabase.</p><button class="btn btn-light btn-small" onclick="go('control')">Ouvrir le tour de contrôle</button></div>
+ <div class="card"><h3>Tour de contrôle</h3><p class="small">Session de pilotage active. Les modifications sensibles restent soumises aux politiques Supabase.</p><button class="btn btn-light btn-small" onclick="go('control')">Ouvrir la tour de contrôle</button></div>
  <div class="card"><h3>Connexion des données</h3><p class="small">Les modules centraux sont synchronisés avec Supabase et Realtime. Les membres disposent d'un accès en lecture pour les données partagées.</p><div class="info">Les modifications sensibles sont réservées au pilotage ou à l'administration.</div></div>
  <div class="card"><h3>Rôles</h3><p class="small">Président · Vice-président · Secrétaire · Trésorier · Adjoint trésorier · Responsable organisation · Adjoints organisation · Chargé communication · Adjoint communication.</p></div>
  <div class="card"><h3>État des données</h3><p class="small">Membres : ${data.members.length} / ${TOTAL_MEMBERS}<br>Idées : ${data.ideas.length}<br>Demandes : ${data.requests.length}<br>Transactions : ${data.transactions.length}<br>Projets : ${data.projects.length}<br>Réunions : ${data.meetings.length}</p></div></div>`;
@@ -822,6 +861,9 @@ function controlPage(){
  <button class="control-action" onclick="openModal('Attribuer un responsable','controlAssign')"><b>👤 Attribuer un responsable</b><span>Demande, projet ou idée.</span></button>
  <button class="control-action" onclick="openModal('Mettre à jour un projet','controlProject')"><b>🚀 Mettre à jour un projet</b><span>Progression, budget et responsable.</span></button>
  <button class="control-action" onclick="openModal('Gérer les membres','controlMembers')"><b>👥 Gérer les profils</b><span>Corriger les informations.</span></button>
+ <button class="control-action" onclick="go('requests')"><b>🗑️ Supprimer une demande</b><span>Supprimer les demandes depuis la file de traitement.</span></button>
+ <button class="control-action" onclick="go('ideas')"><b>🗑️ Supprimer une idée</b><span>Supprimer les idées depuis la boîte à idées.</span></button>
+ <button class="control-action" onclick="go('votes')"><b>🗑️ Supprimer un vote</b><span>Supprimer les décisions de vote du navigateur de pilotage.</span></button>
  <button class="control-action" onclick="openControlLogin('settings')"><b>⚙ Paramètres protégés</b><span>Ouvrir la configuration.</span></button>
  <button class="control-action" onclick="openAdminAction('project')"><b>🚀 Nouveau projet</b><span>Code Admin_gm.</span></button>
  <button class="control-action" onclick="openAdminAction('meeting')"><b>◷ Programmer une réunion</b><span>Code Admin_gm.</span></button>
